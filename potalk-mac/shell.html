@@ -57,6 +57,7 @@ shellPm.onMics(m=>{
 });
 shellPm.onState(s=>{
   tabs.forEach(t=>el[t].classList.toggle('on',s.tab===t));
+  document.getElementById('avatar').classList.toggle('on',s.tab==='settings');
   el.room.disabled=!s.inRoom;
   el.mail.disabled=!s.inRoom;
   el.rset.disabled=!s.inRoom;

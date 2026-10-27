@@ -58,7 +58,7 @@ async function createWindow() {
   let win, pageView = null;
   if (unified) {
     win = new BrowserWindow({
-      width: 1100, height: 820, minWidth: 560, minHeight: 400,
+      width: 480, height: 880, minWidth: 400, minHeight: 600,
       backgroundColor: '#0d1526',
       title: 'Potalker（ぽっと通話 非公式クライアント）',
       webPreferences: { contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'shell-preload.js') },
@@ -82,34 +82,51 @@ async function createWindow() {
 
   // パネル（部屋・ひとこと・おたより・部屋設定）の受け皿。
   // split では個別ウィンドウ、unified ではシェル内のビューとして作り、同じ顔つきで扱う。
-  const views = { page: pageView, room: null, chat: null, mail: null, rset: null };
+  const views = { page: pageView, room: null, chat: null, mail: null, rset: null, settings: null };
   let currentTab = 'page';
-  const layoutView = v => {
-    if (!v || win.isDestroyed()) return;
-    const b = win.getContentBounds();
-    v.setBounds({ x: RAIL_WIDTH, y: 0, width: Math.max(0, b.width - RAIL_WIDTH), height: b.height });
-  };
-  const attachView = v => { if (v && !win.isDestroyed() && !win.getBrowserViews().includes(v)) { win.addBrowserView(v); layoutView(v); } };
+  const CHAT_STRIP = 230; // 部屋タブの下部に出す、ひとこと欄の高さ
+  const attachView = v => { if (v && !win.isDestroyed() && !win.getBrowserViews().includes(v)) win.addBrowserView(v); };
   const detachView = v => { if (v && !win.isDestroyed() && win.getBrowserViews().includes(v)) win.removeBrowserView(v); };
   const sendShellState = () => {
     if (unified && !win.isDestroyed()) win.webContents.send('shell:state', { tab: currentTab, unread: unreadChat, inRoom: !!roomWin, canCreate: !(lastSnap && lastSnap.joined) });
   };
+  // 現在のタブに合わせて、右ペインにビューを並べる。
+  // 部屋タブでは、部屋（上）＋ひとこと（下）の2段にする。
+  function layoutViews() {
+    if (!unified || win.isDestroyed()) return;
+    const b = win.getContentBounds();
+    const W = Math.max(0, b.width - RAIL_WIDTH), H = b.height;
+    const pane = (y, h) => ({ x: RAIL_WIDTH, y, width: W, height: Math.max(0, h) });
+    for (const v of Object.values(views)) if (v) detachView(v);
+    const show = (v, bounds) => { attachView(v); v.setBounds(bounds); };
+    const clearUnread = () => { if (unreadChat) { unreadChat = 0; if (roomWin) roomWin.wc.send('unread', 0); } };
+    if (currentTab === 'room' && views.room) {
+      if (views.chat) { show(views.room, pane(0, H - CHAT_STRIP)); show(views.chat, pane(H - CHAT_STRIP, CHAT_STRIP)); clearUnread(); }
+      else show(views.room, pane(0, H));
+    } else if (currentTab === 'chat' && views.chat) { show(views.chat, pane(0, H)); clearUnread(); }
+    else if (currentTab === 'mail' && views.mail) show(views.mail, pane(0, H));
+    else if (currentTab === 'rset' && views.rset) show(views.rset, pane(0, H));
+    else if (currentTab === 'settings' && views.settings) show(views.settings, pane(0, H));
+    else { currentTab = 'page'; show(pageView, pane(0, H)); }
+    sendShellState();
+  }
   function selectTab(tab) {
     if (!unified) return;
-    if ((tab === 'room' && !roomWin) || (tab === 'mail' && !mailWin) || (tab === 'rset' && !rsetWin)) tab = 'page';
+    const prev = currentTab;
+    if ((tab === 'room' && !roomWin) || (tab === 'mail' && !mailWin) || (tab === 'rset' && !rsetWin) || (tab === 'settings' && !views.settings)) tab = 'page';
     currentTab = tab;
-    for (const [k, v] of Object.entries(views)) { if (v) (k === tab ? attachView : detachView)(v); }
-    if (tab === 'chat') { unreadChat = 0; if (roomWin) roomWin.wc.send('unread', 0); }
-    sendShellState();
+    // 設定ペインから離れたら、本体へ「プロフィールが変わったかも」を知らせる（設定ウィンドウを閉じたときと同じ）
+    if (prev === 'settings' && tab !== 'settings') { const pw = pageWC(); if (!pw.isDestroyed()) pw.send('potalk:profile-changed'); }
+    layoutViews();
   }
   function destroyView(tab) {
     const v = views[tab];
     if (!v) return;
     views[tab] = null;
     detachView(v);
-    if (currentTab === tab) { currentTab = 'page'; attachView(pageView); }
+    if (currentTab === tab) currentTab = 'page';
     if (!v.webContents.isDestroyed()) v.webContents.destroy();
-    sendShellState();
+    layoutViews();
   }
   const viewHost = (tab, file, preload) => {
     const view = new BrowserView({
@@ -136,12 +153,22 @@ async function createWindow() {
   });
 
   const sendState = () => { if (roomWin) { roomWin.wc.send('chat-state', !!chatWin); roomWin.wc.send('mail-state', !!mailWin); } };
+  // 統合モード用：ひとことビューを作る（選択はしない。部屋タブの下段にも出すため）
+  const createChatPanel = () => {
+    chatWin = viewHost('chat', path.join(__dirname, 'chat.html'), path.join(__dirname, 'chat-preload.js'));
+    chatWin.wc.on('did-finish-load', () => chatWin && chatWin.wc.send('lines', lines));
+    chatWin.onClosed(() => { chatWin = null; if (!win.isDestroyed()) sendState(); sendShellState(); });
+    sendState();
+  };
   const openChat = () => {
     unreadChat = 0; if (roomWin) roomWin.wc.send('unread', 0);
     if (chatWin) { chatWin.showInactive(); return; }
     if (unified) {
-      chatWin = viewHost('chat', path.join(__dirname, 'chat.html'), path.join(__dirname, 'chat-preload.js'));
-    } else {
+      createChatPanel();
+      selectTab('chat');
+      return;
+    }
+    {
       // 本体に重ならないよう、本体の右隣（入りきらなければ画面右端）に置く
       const mb = (roomWin ? roomWin.win : win).getBounds(), wa = screen.getDisplayMatching(mb).workArea, w = 340, h = 460;
       const x = Math.min(mb.x + mb.width + 8, wa.x + wa.width - w);
@@ -157,7 +184,6 @@ async function createWindow() {
     }
     chatWin.wc.on('did-finish-load', () => chatWin && chatWin.wc.send('lines', lines));
     chatWin.onClosed(() => { chatWin = null; if (!win.isDestroyed()) sendState(); sendShellState(); });
-    if (unified) selectTab('chat');
     sendState();
   };
   const mine = e => e.sender === pageWC();
@@ -213,6 +239,7 @@ async function createWindow() {
     if (roomWin) { roomWin.show(); return; }
     if (unified) {
       roomWin = viewHost('room', path.join(__dirname, 'room.html'), path.join(__dirname, 'room-preload.js'));
+      if (!chatWin) createChatPanel(); // 部屋タブの下段に出すため、ひとことも用意しておく
     } else {
       const mb = win.getBounds(), wa = screen.getDisplayMatching(mb).workArea, w = 360, h = Math.min(700, wa.height);
       const rw = new BrowserWindow({
@@ -351,7 +378,8 @@ async function createWindow() {
   // 実処理はページ側の既存ボタンをそのまま押すことで流用する。
   ipcMain.on('shell:click', (e, name) => {
     if (!unified || e.sender !== win.webContents) return;
-    const id = { profile: 'pmSet', create: 'pmNew', help: 'pmHelp' }[name];
+    if (name === 'profile') { openSettingsPane(); return; }
+    const id = { create: 'pmNew', help: 'pmHelp' }[name];
     if (id) pageWC().send('potalk:ui-click', id);
   });
   // プロフィール（絵文字・名前）とマイク一覧はページ側が持っているので、左タブへ中継する
@@ -368,6 +396,17 @@ async function createWindow() {
     pageWC().send('potalk:mic-set', v.slice(0, 200));
   });
   // 初期設定（名前・アバター・見た目）。同じページを設定だけの表示で開く。保存先(localStorage)は本体と共通
+  // 統合モードでは別ウィンドウにせず、右ペインに設定ビューを出す
+  const openSettingsPane = () => {
+    if (!views.settings) {
+      const v = new BrowserView({
+        webPreferences: { contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'preload.js'), additionalArguments: ['--pm-role=settings'] },
+      });
+      views.settings = v;
+      v.webContents.loadURL(HOME);
+    }
+    selectTab('settings');
+  };
   let settingsWin = null;
   const openSettings = () => {
     if (settingsWin) { settingsWin.show(); settingsWin.focus(); return; }
@@ -379,7 +418,7 @@ async function createWindow() {
     settingsWin.loadURL(HOME);
     settingsWin.on('closed', () => { settingsWin = null; const pw = pageWC(); if (!pw.isDestroyed()) pw.send('potalk:profile-changed'); });
   };
-  ipcMain.on('potalk:settings-open', e => { if (mine(e)) openSettings(); });
+  ipcMain.on('potalk:settings-open', e => { if (mine(e)) { if (unified) openSettingsPane(); else openSettings(); } });
   win.on('closed', () => { if (settingsWin) settingsWin.close(); });
   // 部屋づくりの小窓。入力だけをここで受け取り、本体のページに流し込んで「部屋を作る」を押す
   let createWin = null;
@@ -434,7 +473,7 @@ async function createWindow() {
     if (new URL(url).origin !== ORIGIN) { e.preventDefault(); shell.openExternal(url); }
   });
   if (unified) {
-    win.on('resize', () => { const v = views[currentTab]; if (v) layoutView(v); });
+    win.on('resize', () => layoutViews());
     selectTab('page');
   }
 }
