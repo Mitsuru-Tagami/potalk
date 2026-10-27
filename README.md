@@ -31,6 +31,14 @@ cd potalk-swift
 - 署名用の証明書がある場合は、`CODESIGN_ID="証明書の名前" ./make_app.sh release` のように指定できます。署名が変わらなければ、キーチェーンの「常に許可」が、ビルドし直しても効き続けます（既定は簡易署名で、ビルドのたびに許可の確認が出ることがあります）。
 - ページへの小さな差し込み（過去ログ共有、リアクションの効果など）は `Sources/PotalkMac/PagePatcher.swift` にあります。差し込み位置が見つからないときは、元のページをそのまま使います。
 
+## Windows 版（試験中）
+
+Electron 版（`potalk-mac/`）を、Windows 向けにもビルドできるようにしました。GitHub Actions（`.github/workflows/build-windows.yml`）が、インストーラー（.exe）と zip を作ります。
+
+- **まだ、Windows の実機での動作確認は、できていません。** 起動、入室、マイクの動作は、ご自身で確かめてから使ってください。
+- 署名していないため、SmartScreen の警告が出ます（「詳細情報」→「実行」）。
+- ローカルで作る場合: `cd potalk-mac && npm ci && npm run dist:win`
+
 ## Electron 版
 
 ```bash

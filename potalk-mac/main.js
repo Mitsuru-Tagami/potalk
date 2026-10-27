@@ -14,7 +14,7 @@ async function createWindow() {
   const win = new BrowserWindow({
     width: 520, height: 820, minWidth: 320, minHeight: 300,
     backgroundColor: '#0d1526',
-    title: 'ぽっと通話',
+    title: 'Potalker（ぽっと通話 非公式クライアント）',
     webPreferences: { contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'preload.js'), backgroundThrottling: false },
   });
   let forceRoom = false, askingRoom = false, unreadChat = 0;
@@ -137,7 +137,8 @@ async function createWindow() {
   const ding = () => {
     if (Date.now() - lastDing < 1000) return;
     lastDing = Date.now();
-    execFile('/usr/bin/afplay', ['/System/Library/Sounds/Glass.aiff'], err => { if (err) shell.beep(); });
+    if (process.platform === 'darwin') execFile('/usr/bin/afplay', ['/System/Library/Sounds/Glass.aiff'], err => { if (err) shell.beep(); });
+    else shell.beep();
   };
   ipcMain.on('potalk:room-state', (e, s) => { if (!mine(e)) return;
     const hands = s && s.joined ? handsOf(s) : 0;
