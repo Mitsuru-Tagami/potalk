@@ -11,12 +11,15 @@ else
   BIN=".build/$CFG/PotalkMac"
 fi
 NAME="Potalker"
-VER="0.2.0"
+VER="0.2.1"
 APP="build/$NAME.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/$NAME"
 [ -f ../potalk-mac/icon.icns ] && cp ../potalk-mac/icon.icns "$APP/Contents/Resources/icon.icns"
+# ライセンスと第三者の表示も、アプリの中に入れる
+[ -f ../LICENSE ] && cp ../LICENSE "$APP/Contents/Resources/LICENSE.txt"
+[ -f ../THIRD_PARTY_NOTICES.md ] && cp ../THIRD_PARTY_NOTICES.md "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
