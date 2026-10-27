@@ -2,27 +2,35 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
 <title>Potalker</title><style>
 html,body{height:100%;margin:0;background:#0d1526;color:#e8eefc;font:13px -apple-system,"Hiragana Sans","Noto Sans JP",sans-serif}
-#rail{position:fixed;left:0;top:0;bottom:0;width:76px;display:flex;flex-direction:column;align-items:stretch;padding:10px 8px;gap:6px;box-sizing:border-box;background:#0a1120;border-right:1px solid rgba(255,255,255,.1)}
-button{font:inherit;color:#cfd8ea;background:transparent;border:1px solid transparent;border-radius:12px;padding:9px 2px 7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;line-height:1.15}
+#rail{position:fixed;left:0;top:0;bottom:0;width:76px;display:flex;flex-direction:column;align-items:stretch;padding:10px 8px;gap:6px;box-sizing:border-box;background:#0a1120;border-right:1px solid rgba(255,255,255,.1);overflow-y:auto}
+button{font:inherit;color:#cfd8ea;background:transparent;border:1px solid transparent;border-radius:12px;padding:9px 2px 7px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;line-height:1.15;width:100%}
 button .ic{font-size:19px}
-button .lb{font-size:10px}
+button .lb{font-size:10px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 button:hover{background:rgba(255,255,255,.07)}
 button.on{background:rgba(59,130,246,.28);border-color:#3b82f6;color:#fff}
 button:disabled{opacity:.35;cursor:default}
 button:disabled:hover{background:transparent}
+#avatar .ic{font-size:26px}
 #sp{flex:1}
-#chatB{position:relative}
+#t-chat{position:relative}
 #bdg{position:absolute;top:4px;right:10px;min-width:16px;height:16px;border-radius:8px;background:#f43f5e;color:#fff;font-size:10px;line-height:16px;text-align:center;padding:0 4px;box-sizing:border-box;display:none}
-#mode{font-size:10px;color:#8fa0c4}
+.pm-mic{position:relative;display:block}
+.pm-mic button{pointer-events:none}
+.pm-mic select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+#mode .lb,#helpB .lb{font-size:10px;color:#8fa0c4}
 #main{position:fixed;left:76px;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;color:#8fa0c4}
 </style></head><body>
 <nav id="rail">
+  <button id="avatar" title="名前・アバター・見た目などの設定"><span class="ic" id="avEmoji">🧑</span><span class="lb" id="avName">設定</span></button>
   <button id="t-page" class="on"><span class="ic">🏠</span><span class="lb">ロビー</span></button>
   <button id="t-room"><span class="ic">🚪</span><span class="lb">部屋</span></button>
   <button id="t-chat"><span class="ic">💬</span><span class="lb">ひとこと</span><span id="bdg"></span></button>
   <button id="t-mail"><span class="ic">✉️</span><span class="lb">おたより</span></button>
   <button id="t-rset"><span class="ic">⚙️</span><span class="lb">部屋設定</span></button>
+  <button id="createB"><span class="ic">🆕</span><span class="lb">部屋を作る</span></button>
   <div id="sp"></div>
+  <span class="pm-mic"><button type="button" tabindex="-1"><span class="ic">🎤</span><span class="lb">入力設定</span></button><select id="micSel" aria-label="入力設定（マイク）"></select></span>
+  <button id="helpB"><span class="ic">？</span><span class="lb">これは<br>なに？</span></button>
   <button id="mode"><span class="ic">🪟</span><span class="lb">バラバラに<br>切り替え</span></button>
 </nav>
 <div id="main">読み込み中…</div>
@@ -30,12 +38,29 @@ button:disabled:hover{background:transparent}
 const tabs=['page','room','chat','mail','rset'];
 const el={};tabs.forEach(t=>el[t]=document.getElementById('t-'+t));
 tabs.forEach(t=>el[t].onclick=()=>shellPm.select(t));
+document.getElementById('avatar').onclick=()=>shellPm.click('profile');
+document.getElementById('createB').onclick=()=>shellPm.click('create');
+document.getElementById('helpB').onclick=()=>shellPm.click('help');
 document.getElementById('mode').onclick=()=>shellPm.mode();
+const micSel=document.getElementById('micSel');
+micSel.onchange=()=>shellPm.micSelect(micSel.value);
+shellPm.onProfile(p=>{
+  document.getElementById('avEmoji').textContent=p.emoji||'🧑';
+  document.getElementById('avName').textContent=p.name&&!p.name.includes('設定')?p.name:'設定';
+  document.getElementById('avatar').title=p.name?('設定：'+p.name):'名前・アバター・見た目などの設定';
+});
+shellPm.onMics(m=>{
+  micSel.innerHTML='';
+  for(const o of m.options){const op=document.createElement('option');op.value=o.value;op.textContent=o.label;micSel.appendChild(op)}
+  micSel.value=m.value;
+  micSel.title='入力：'+(m.options.find(o=>o.value===m.value)?.label||'既定のマイク');
+});
 shellPm.onState(s=>{
   tabs.forEach(t=>el[t].classList.toggle('on',s.tab===t));
   el.room.disabled=!s.inRoom;
   el.mail.disabled=!s.inRoom;
   el.rset.disabled=!s.inRoom;
+  document.getElementById('createB').disabled=!s.canCreate;
   const b=document.getElementById('bdg');
   b.style.display=s.unread>0?'block':'none';
   b.textContent=s.unread>99?'99+':String(s.unread);

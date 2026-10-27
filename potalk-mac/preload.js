@@ -55,6 +55,8 @@ body{padding-top:var(--pm-top,52px)!important;padding-bottom:var(--pm-bot,50px)!
 `;
 
 const ROLE = (process.argv.find(a => a.startsWith('--pm-role=')) || '').slice(10) || 'main';
+// 統合モード（左タブのシェルに本体が埋め込まれている）かどうか。メインプロセスが引数で知らせる
+const UNIFIED = process.argv.includes('--pm-mode=unified');
 
 const SETTINGS_CSS = `
 .wrap>.lobby,.legal,.banner,.sub,#createBox,#statusCard,#help,#pmBar,#pmFoot{display:none!important}
@@ -88,6 +90,12 @@ body{justify-content:flex-start!important}
 #roomAsk #roomAskText{font-size:15px;line-height:1.7;color:var(--text)!important}
 #roomAsk .room-quiet,#roomAsk label{color:var(--text)!important;opacity:1!important;font-size:14px!important}
 #roomAsk #roomAskYes,#roomAsk #roomAskNo{width:100%!important;padding:11px!important;font-size:15px!important;margin:0!important}`;
+
+// 統合モード：設定・マイク・ヘルプ・部屋作りは左タブへ移すので、ページ側のバーでは隠す。
+// 右ペインの上部に残るのは、検索欄と「更新」だけ。
+const UNIFIED_CSS = `
+#pmBar #pmSet,#pmBar .pm-mic,#pmBar #pmHelp,#pmBar #pmNew{display:none!important}
+`;
 
 const HELP_CSS = `
 body>*:not(#helpDialog):not(style):not(script){display:none!important}
@@ -125,6 +133,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
   const st2 = document.createElement('style'); st2.textContent = MAIN_CSS; document.head.appendChild(st2);
+  if (UNIFIED) { const stu = document.createElement('style'); stu.textContent = UNIFIED_CSS; document.head.appendChild(stu); }
   const bar = document.createElement('div'); bar.id = 'pmBar';
   bar.innerHTML = `<button id="pmSet" title="名前・アバター・見た目などの初期設定">🧑 設定</button>
     <span class="pm-sp"></span>
@@ -223,8 +232,23 @@ window.addEventListener('DOMContentLoaded', () => {
   navigator.mediaDevices.addEventListener('devicechange', fillMics);
   sel.addEventListener('focus', fillMics);
   fillMics(); setTimeout(fillMics, 3000);
+  if (UNIFIED) {
+    // 左タブのマイク選択へ中継する（デバイスの実データと保存先 localStorage はページ側にある）
+    const sendMics = () => ipcRenderer.send('potalk:mic-list', {
+      options: [...sel.options].map(o => ({ value: o.value, label: o.textContent })),
+      value: sel.value,
+    });
+    setInterval(sendMics, 2000); setTimeout(sendMics, 3600);
+    ipcRenderer.on('potalk:mic-set', (_e, v) => {
+      try { localStorage.setItem('potalkMicId', String(v)); } catch {}
+      if ([...sel.options].some(o => o.value === String(v))) sel.value = String(v);
+      sel.title = '入力：' + (sel.selectedOptions[0]?.textContent || '');
+    });
+    // 左タブのボタン（設定・部屋作り・ヘルプ）は、ページ側の既存ボタンを押すことで処理する
+    ipcRenderer.on('potalk:ui-click', (_e, id) => { if (['pmSet', 'pmNew', 'pmHelp'].includes(id)) $(id)?.click(); });
+  }
 
-  let joined = false;
+  let joined = false, lastProfile = '';
   $('pmRoom').onclick = () => ipcRenderer.send('potalk:room-open');
   $('pmNew').onclick = () => {
     const nm = ($('pfName')?.textContent || '').trim();
@@ -255,6 +279,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const em = $('pfEmoji')?.textContent || '🧑', nm = $('pfName')?.textContent || '';
     const label = nm && !nm.includes('設定') ? `${em} ${nm}` : '🧑 設定';
     if ($('pmSet').textContent !== label) $('pmSet').textContent = label;
+    if (UNIFIED) { const pk = em + '|' + nm; if (pk !== lastProfile) { lastProfile = pk; ipcRenderer.send('potalk:profile-info', { emoji: em, name: nm }); } }
     const j = !!$('tabs') && !$('tabs').hidden;
     if (j === joined) return;
     joined = j;

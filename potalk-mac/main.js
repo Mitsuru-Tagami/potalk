@@ -64,7 +64,7 @@ async function createWindow() {
       webPreferences: { contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'shell-preload.js') },
     });
     pageView = new BrowserView({
-      webPreferences: { contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'preload.js'), backgroundThrottling: false },
+      webPreferences: { contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'preload.js'), backgroundThrottling: false, additionalArguments: ['--pm-mode=unified'] },
     });
     win.loadFile(path.join(__dirname, 'shell.html'));
   } else {
@@ -92,7 +92,7 @@ async function createWindow() {
   const attachView = v => { if (v && !win.isDestroyed() && !win.getBrowserViews().includes(v)) { win.addBrowserView(v); layoutView(v); } };
   const detachView = v => { if (v && !win.isDestroyed() && win.getBrowserViews().includes(v)) win.removeBrowserView(v); };
   const sendShellState = () => {
-    if (unified && !win.isDestroyed()) win.webContents.send('shell:state', { tab: currentTab, unread: unreadChat, inRoom: !!roomWin });
+    if (unified && !win.isDestroyed()) win.webContents.send('shell:state', { tab: currentTab, unread: unreadChat, inRoom: !!roomWin, canCreate: !(lastSnap && lastSnap.joined) });
   };
   function selectTab(tab) {
     if (!unified) return;
@@ -273,7 +273,7 @@ async function createWindow() {
     const hands = s && s.joined ? handsOf(s) : 0;
     if (hands > lastHands) ding();
     lastHands = hands;
-    lastSnap = s; roomWin && roomWin.wc.send('state', s); rsetWin && rsetWin.wc.send('state', s); mailWin && mailWin.wc.send('state', s); letterWin && letterWin.webContents.send('state', s); syncLetter(s); });
+    lastSnap = s; roomWin && roomWin.wc.send('state', s); rsetWin && rsetWin.wc.send('state', s); mailWin && mailWin.wc.send('state', s); letterWin && letterWin.webContents.send('state', s); syncLetter(s); sendShellState(); });
   ipcMain.on('potalk:room-eq', (e, s) => { if (mine(e) && roomWin && typeof s === 'string') roomWin.wc.send('eq', s.slice(0, 80)); });
   ipcMain.on('potalk:room-react', (e, r) => { if (mine(e) && roomWin && r && typeof r.e === 'string') roomWin.wc.send('react', { u: String(r.u), e: r.e.slice(0, 8), n: String(r.n || '').slice(0, 40) }); });
   ipcMain.on('potalk:room-cmd', (e, c) => { if (fromRoom(e) && c && typeof c.type === 'string') pageWC().send('potalk:room-cmd', c); });
@@ -347,6 +347,26 @@ async function createWindow() {
     selectTab(tab);
   });
   ipcMain.on('shell:mode', e => { if (unified && e.sender === win.webContents) requestModeChange('split'); });
+  // 統合モードでは、ページ側のバーにあった操作（設定・部屋作り・ヘルプ）を左タブへ移す。
+  // 実処理はページ側の既存ボタンをそのまま押すことで流用する。
+  ipcMain.on('shell:click', (e, name) => {
+    if (!unified || e.sender !== win.webContents) return;
+    const id = { profile: 'pmSet', create: 'pmNew', help: 'pmHelp' }[name];
+    if (id) pageWC().send('potalk:ui-click', id);
+  });
+  // プロフィール（絵文字・名前）とマイク一覧はページ側が持っているので、左タブへ中継する
+  ipcMain.on('potalk:profile-info', (e, p) => {
+    if (!mine(e) || !p) return;
+    if (!win.isDestroyed()) win.webContents.send('shell:profile', { emoji: String(p.emoji || '🧑').slice(0, 8), name: String(p.name || '').slice(0, 40) });
+  });
+  ipcMain.on('potalk:mic-list', (e, m) => {
+    if (!mine(e) || !m || !Array.isArray(m.options)) return;
+    if (!win.isDestroyed()) win.webContents.send('shell:mic-list', m);
+  });
+  ipcMain.on('shell:mic-select', (e, v) => {
+    if (!unified || e.sender !== win.webContents || typeof v !== 'string') return;
+    pageWC().send('potalk:mic-set', v.slice(0, 200));
+  });
   // 初期設定（名前・アバター・見た目）。同じページを設定だけの表示で開く。保存先(localStorage)は本体と共通
   let settingsWin = null;
   const openSettings = () => {
