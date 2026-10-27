@@ -121,7 +121,7 @@ public sealed class RoomWindow : Window
 
     void ShareUrl()
     {
-        try { Clipboard.SetText(E.Room.S("share")); } catch { return; }
+        try { var s = E.Room.S("share"); Clipboard.SetText(M.S.ShortLinks ? Links.StripName(s) : s); } catch { return; }
         shareBtn.Content = "✓ コピーしました";
         var t = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
         t.Tick += (_, _) => { shareBtn.Content = "🔗 URLを共有"; t.Stop(); }; t.Start();
@@ -268,7 +268,7 @@ public sealed class RoomWindow : Window
         nm.Children.Add(Ui.Txt(c.S("name"), 18, bold: true, wrap: true)); nm.Children.Add(Ui.Txt(c.S("state"), 12, Ui.Dim));
         head.Children.Add(nm);
         sp.Children.Add(head);
-        if (c.S("bio").Length > 0) { var bio = Ui.Txt(c.S("bio"), 14, wrap: true); bio.Margin = new Thickness(0, 12, 0, 0); sp.Children.Add(bio); }
+        if (c.S("bio").Length > 0) { var bio = Ui.Txt("", 14, wrap: true); Links.Fill(bio, c.S("bio"), u => M.ConfirmOpen(u, this)); bio.Margin = new Thickness(0, 12, 0, 0); sp.Children.Add(bio); }
         var soc = new WrapPanel { Margin = new Thickness(0, 8, 0, 0) };
         foreach (var s in c.A("socials"))
         {

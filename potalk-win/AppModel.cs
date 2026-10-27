@@ -184,8 +184,21 @@ public sealed class AppModel
     public void ConfirmOpen(string url, Window owner)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var u) || (u.Scheme != "http" && u.Scheme != "https")) return;
-        var shown = u.AbsoluteUri.Length > 300 ? u.AbsoluteUri[..300] : u.AbsoluteUri;
+        var shown = Readable(u.AbsoluteUri);
+        if (shown.Length > 300) shown = shown[..300];
         if (Ui.Ask(owner, "このリンクを開きますか？", shown, "ブラウザで開く")) Engine.OpenExternal(u.AbsoluteUri);
+    }
+
+    /// <summary>確認画面に出す用：%E9%9D%9E のようなパーセント表記を、読める文字に戻す（開くときは元のURLを使う）。</summary>
+    static string Readable(string url)
+    {
+        try
+        {
+            var s = Uri.UnescapeDataString(url);
+            // 制御文字や、向きを入れ替える文字が混じるときは、紛らわしいので元のまま見せる
+            return s.Any(c => char.IsControl(c) || (c >= '‪' && c <= '‮') || (c >= '⁦' && c <= '⁩') || c == '�') ? url : s;
+        }
+        catch { return url; }
     }
 
     // ---- ウィンドウ ----

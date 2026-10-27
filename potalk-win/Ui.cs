@@ -136,3 +136,28 @@ public static class Img
         catch { return null; }
     }
 }
+
+public static class Links
+{
+    static readonly System.Text.RegularExpressions.Regex Url = new(@"https?://[^\s<>""'）)」』、。]+", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    static readonly System.Text.RegularExpressions.Regex NameParam = new(@"&name=[^&\s#]*", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>部屋のURLから、表示用の &name=… を取り除く（部屋はIDで決まる）。</summary>
+    public static string StripName(string text) => NameParam.Replace(text, "");
+
+    /// <summary>文中の http(s) のURLをリンクにして、TextBlock に入れる（押すと、開く前に確認を出す）。</summary>
+    public static void Fill(TextBlock tb, string text, Action<string> open)
+    {
+        int pos = 0;
+        foreach (System.Text.RegularExpressions.Match m in Url.Matches(text))
+        {
+            if (m.Index > pos) tb.Inlines.Add(new System.Windows.Documents.Run(text[pos..m.Index]));
+            var u = m.Value;
+            var h = new System.Windows.Documents.Hyperlink(new System.Windows.Documents.Run(u)) { ToolTip = u };
+            h.Click += (_, _) => open(u);
+            tb.Inlines.Add(h); pos = m.Index + m.Length;
+        }
+        if (pos < text.Length) tb.Inlines.Add(new System.Windows.Documents.Run(text[pos..]));
+    }
+}

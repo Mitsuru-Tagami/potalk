@@ -44,11 +44,11 @@ public sealed class ChatWindow : Window
         log.Children.Clear();
         foreach (var l in M.Past.Concat(M.ChatLines))
         {
-            if (l.Sys) { var s = Ui.Txt(l.Text, 11, Ui.Dim, wrap: true); s.Margin = new Thickness(0, 4, 0, 4); log.Children.Add(s); continue; }
+            if (l.Sys) { var s = Ui.Txt("", 11, Ui.Dim, wrap: true); Links.Fill(s, l.Text, u => M.ConfirmOpen(u, this)); s.Margin = new Thickness(0, 4, 0, 4); log.Children.Add(s); continue; }
             var tb = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 2), FontSize = 13, Foreground = l.Hist ? Ui.Dim : Ui.Fg };
             tb.Inlines.Add(new System.Windows.Documents.Run(l.Em + " ") { FontSize = 15 });
             tb.Inlines.Add(new System.Windows.Documents.Run(l.Who + "  ") { FontWeight = FontWeights.SemiBold, Foreground = Ui.Dim, FontSize = 12 });
-            tb.Inlines.Add(new System.Windows.Documents.Run(l.Text));
+            Links.Fill(tb, l.Text, u => M.ConfirmOpen(u, this));
             log.Children.Add(tb);
         }
         sv.ScrollToBottom();
@@ -153,6 +153,10 @@ public sealed class ProfileWindow : Window
         var card = Ui.Btn("📇 名刺（プロフィールカード）を設定…", () => M.E.Cmd(new { type = "cardEdit" })); card.Margin = new Thickness(0, 12, 0, 0);
         sp.Children.Add(card);
         sp.Children.Add(Ui.Txt("名前・アイコンを変えると、次に入る部屋から反映されます。", 11, Ui.Dim, wrap: true));
+        var shortLink = new CheckBox { Content = "部屋のURLをコピーするとき、部屋名の部分（&name=…）を省く", IsChecked = M.S.ShortLinks, Margin = new Thickness(0, 14, 0, 0) };
+        shortLink.Click += (_, _) => { M.S.ShortLinks = shortLink.IsChecked == true; M.S.Save(); };
+        sp.Children.Add(shortLink);
+        sp.Children.Add(Ui.Txt("ひとこと欄は60文字までなので、長いURLは途中で切れます。省いても、同じ部屋に入れます。", 11, Ui.Dim, wrap: true));
         var reset = Ui.Btn("🪟 ウィンドウの位置と大きさを初期に戻す", () =>
         {
             M.S.Windows.Clear(); M.S.Save();

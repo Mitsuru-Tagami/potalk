@@ -177,7 +177,12 @@ public sealed class MainWindow : Window
         var copy = Ui.Btn("🔗", null, Ui.Card, size: 12); copy.ToolTip = "部屋名とリンクをコピー";
         copy.Click += (_, e) =>
         {
-            try { Clipboard.SetText($"{r.S("name")}\nhttps://potalk.app/#room={Uri.EscapeDataString(r.S("id"))}&name={Uri.EscapeDataString(r.S("name"))}"); } catch { }
+            try
+            {
+                var link = $"https://potalk.app/#room={Uri.EscapeDataString(r.S("id"))}&name={Uri.EscapeDataString(r.S("name"))}";
+                Clipboard.SetText($"{r.S("name")}\n{(M.S.ShortLinks ? Links.StripName(link) : link)}");
+            }
+            catch { }
             copy.Content = "✓"; var t = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1.4) };
             t.Tick += (_, _) => { copy.Content = "🔗"; t.Stop(); }; t.Start();
             e.Handled = true;

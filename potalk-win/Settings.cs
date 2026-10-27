@@ -12,6 +12,8 @@ public sealed class Settings
     public string MicLabel { get; set; } = "";
     public bool MuteOnCreate { get; set; } = true;
     public bool MuteOnJoin { get; set; } = true;
+    /// <summary>部屋のURLをコピーするとき、「&amp;name=…」を省く（ひとこと欄の60文字に収まりやすい）</summary>
+    public bool ShortLinks { get; set; } = true;
     /// <summary>ウィンドウごとの前回の位置と大きさ（左・上・幅・高さ）</summary>
     public Dictionary<string, double[]> Windows { get; set; } = new();
 
