@@ -1,0 +1,28 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>おたより</title><style>
+html,body{height:100%;margin:0}body{display:flex;flex-direction:column;background:#0d1526;color:#e8eefc;font:14px -apple-system,sans-serif;user-select:none}
+#hd{padding:12px;border-bottom:1px solid rgba(255,255,255,.14);display:flex;flex-direction:column;gap:6px;line-height:1.5}
+#bd{flex:1;overflow-y:auto;padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+.it{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.08)}.it.sh{box-shadow:0 0 0 1px #3b82f6 inset;background:rgba(59,130,246,.2)}
+.it .w{flex:1}.it .who{color:#8fa0c4;font-size:12px}.m{color:#8fa0c4;font-size:12px;line-height:1.6}
+button{font:inherit;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:5px 10px;cursor:pointer;font-size:12px}
+button.on{background:#3b82f6;border-color:#3b82f6}
+#fm{display:none;gap:6px;padding:8px 10px 12px;border-top:1px solid rgba(255,255,255,.14)}
+#fm input{flex:1;min-width:0;font:inherit;padding:7px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:inherit;user-select:text}
+#fm button{font-size:14px;background:#3b82f6;border-color:#3b82f6}
+</style></head><body><div id="hd"></div><div id="bd"></div>
+<div id="fm"><input id="t" autocomplete="off"><button id="s">送る</button></div>
+<script>
+const $=id=>document.getElementById(id),mk=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+const btn=(b)=>{const e=mk('button',b.on||/公開中/.test(b.label)?'on':'',b.label);e.onclick=()=>pm.cmd({type:'mailbtn',i:b.i});return e};
+let sig='';
+pm.onState(s=>{const mail=s.mail||{head:[],body:[],form:null};const g=JSON.stringify(mail)+s.bcast;if(g===sig)return;sig=g;
+ const hd=$('hd'),bd=$('bd');hd.replaceChildren();bd.replaceChildren();
+ if(!s.bcast){hd.append(mk('div','m','配信部屋のときだけ使えます。'));$('fm').style.display='none';return}
+ for(const h of mail.head){const d=mk('div');if(h.text)d.append(document.createTextNode(h.text+' '));h.btns.forEach(b=>d.append(btn(b)));hd.append(d)}
+ for(const b of mail.body){if(b.item){const r=mk('div','it'+(b.shown?' sh':''));const w=mk('div','w');w.append(mk('div','who',b.em+' '+b.who),mk('div',null,b.text));r.append(w);b.btns.forEach(x=>r.append(btn(x)));bd.append(r)}else bd.append(mk('div','m',b.text))}
+ const f=mail.form,fm=$('fm');fm.style.display=f?'flex':'none';if(f){$('t').placeholder=f.ph;$('t').maxLength=f.max;$('s').textContent=f.btn}});
+const send=()=>{const v=$('t').value;if(!v.trim())return;pm.cmd({type:'mailsend',text:v});$('t').value=''};
+$('s').onclick=send;$('t').onkeydown=e=>{if(e.key==='Enter'&&!e.isComposing)send()};
+</script></body></html>

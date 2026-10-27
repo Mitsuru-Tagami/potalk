@@ -1,0 +1,69 @@
+import Foundation
+
+/// potalk.app の index.html に小さな差し込みを当てる。差し込み位置が見つからなければ元のページをそのまま使う。
+enum PagePatcher {
+    static let histCode = #"""
+    // ---- [potalk-mac] 過去ログ共有 ----
+    window.__pmPatched = 1
+    const pmHistSend = id => {
+      const rows = [...chatLogEl.querySelectorAll('.cl-row:not(.cl-sys):not(.cl-hist)')].slice(-30)
+      const items = rows.map(r => ({
+        e: r.querySelector('.cl-em')?.textContent || '',
+        n: (r.querySelector('.cl-who')?.textContent || '').replace('（あなた）', '') || (profile && profile.name) || '',
+        t: r.querySelector('.cl-text')?.textContent || '',
+      })).filter(x => x.t)
+      if (items.length) sendTo(pmHistAction, items, id)
+    }
+    let pmHistFor = null, pmHistAction = null
+    const pmHistRecv = (data, peerId) => {
+      if (!call.joinedId || pmHistFor === call.joinedId || call.ignored.has(peerId) || !Array.isArray(data)) return
+      pmHistFor = call.joinedId
+      const frag = document.createDocumentFragment()
+      const head = document.createElement('div'); head.className = 'cl-row cl-sys cl-hist'
+      const hx = document.createElement('span'); hx.className = 'cl-text'; hx.textContent = 'ここから過去ログ（参加者から受け取ったもの・真偽は未確認）'
+      head.append(hx); frag.append(head)
+      data.slice(-30).forEach(x => {
+        const t = capText(x && x.t, CHAT_MAX); if (!t) return
+        const row = document.createElement('div'); row.className = 'cl-row cl-hist'
+        const em = document.createElement('span'); em.className = 'cl-em'; em.textContent = capText(x.e, 8, '🙂')
+        const who = document.createElement('span'); who.className = 'cl-who'; who.textContent = capText(x.n, 20, 'ゲスト')
+        const tx = document.createElement('span'); tx.className = 'cl-text'; tx.textContent = t
+        row.append(em, who, tx); frag.append(row)
+      })
+      if (frag.childElementCount > 1) { chatLogEl.prepend(frag); chatLogEl.hidden = false }
+    }
+
+    """#
+
+    struct Patch { let find: String; let replace: (String) -> String }
+
+    static let patches: [Patch] = [
+        Patch(find: "const CHAT_LOG_MAX = 30\n", replace: { $0 + histCode }),
+        Patch(find: "call.chatAction = call.room.makeAction('chat')", replace: {
+            "pmHistAction = call.room.makeAction('hist'); pmHistAction.onMessage = (d, { peerId }) => pmHistRecv(d, peerId)\n  " + $0 }),
+        Patch(find: "sendProfile(id); sendMeta(id);", replace: { $0 + " pmHistSend(id);" }),
+        // 名刺と「無視」の確認は、ネイティブ側に出すので、ページ内ではモーダルにしない
+        Patch(find: "try { $('cardDlg').showModal() } catch {}", replace: { _ in "try { $('cardDlg').show() } catch {}" }),
+        Patch(find: "try { $('ignoreDlg').showModal() } catch { doIgnore(id) }", replace: { _ in "try { $('ignoreDlg').show() } catch { doIgnore(id) }" }),
+        // 起動のたびにキーチェーンの確認が出ないよう、名刺の鍵は「本人確認の証拠がある人」だけ起動時に読む（それ以外は必要になったときに読む）
+        Patch(find: "cardKeyLoad(false).catch(() => {})\nconst CARD_NOSTR_KIND", replace: { _ in
+            "try { const _pc = loadCard(); if (_pc.proofs && Object.keys(_pc.proofs).length) cardKeyLoad(false).catch(() => {}) } catch {}\nconst CARD_NOSTR_KIND" }),
+        Patch(find: "try { $('cropDlg').showModal() } catch { finish(null) }", replace: { _ in "try { $('cropDlg').show() } catch { finish(null) }" }),
+        Patch(find: "try { $('cardEditDlg').showModal() } catch {}", replace: { _ in "try { $('cardEditDlg').show() } catch {}" }),
+        Patch(find: "try { $('cardAuthDlg').showModal() } catch {}", replace: { _ in "try { $('cardAuthDlg').show() } catch {}" }),
+        Patch(find: "btn.onclick = () => askRoom(room, lobbyName(room, people))", replace: { "btn.dataset.room = room; " + $0 }),
+        Patch(find: "const flyReaction = (uid, idx) => {\n", replace: {
+            $0 + "  try { window.__pm && window.__pm.react(uid, idx, REACTIONS[idx], uid === 'self' ? '' : ((call.profiles.get(uid) || {}).name || '')) } catch {}\n" }),
+    ]
+
+    /// 戻り値: (html, 当てられたか, 見つからなかった位置)
+    static func apply(_ html: String) -> (String, Bool, String?) {
+        var out = html
+        for p in patches {
+            guard let first = out.range(of: p.find) else { return (html, false, p.find) }
+            if out.range(of: p.find, range: first.upperBound..<out.endIndex) != nil { return (html, false, p.find) }
+            out.replaceSubrange(first, with: p.replace(p.find))
+        }
+        return (out, true, nil)
+    }
+}

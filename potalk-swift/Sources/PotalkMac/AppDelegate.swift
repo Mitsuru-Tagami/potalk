@@ -1,0 +1,99 @@
+import AppKit
+import SwiftUI
+
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    let engine = Engine()
+    lazy var model = AppModel(engine: engine)
+    var debug: DebugChannel?
+
+    func applicationDidFinishLaunching(_ n: Notification) {
+        engine.log = { print("[engine]", $0) }
+        engine.start()
+        buildMenu()
+        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 820), styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
+        w.title = "ぽっと通話"
+        w.contentView = NSHostingView(rootView: MainView().environmentObject(model).environmentObject(engine))
+        w.contentMinSize = NSSize(width: 360, height: 420)
+        w.isReleasedWhenClosed = false
+        w.center(); w.setFrameAutosaveName("win.main"); w.makeKeyAndOrderFront(nil)
+        model.mainWin = w
+        if ProcessInfo.processInfo.environment["POTALK_DEBUG"] == "1" {
+            let d = DebugChannel(engine: engine)
+            d.snapshots["main"] = { [weak self] in self?.model.mainWin?.contentView }
+            d.snapshots["room"] = { [weak self] in self?.model.roomWin?.contentView }
+            d.snapshots["chat"] = { [weak self] in self?.model.chatWin?.contentView }
+            d.snapshots["mail"] = { [weak self] in self?.model.mailWin?.contentView }
+            d.snapshots["letter"] = { [weak self] in self?.model.letterWin?.contentView }
+            d.snapshots["settings"] = { [weak self] in self?.model.settingsWin?.contentView }
+            d.snapshots["cardedit"] = { [weak self] in self?.model.cardEditWin?.contentView }
+            d.snapshots["cardauth"] = { [weak self] in self?.model.cardAuthWin?.contentView }
+            d.snapshots["profile"] = { [weak self] in self?.model.profileWin?.contentView }
+            d.extra = { [weak self] in "mics=\(self?.model.mics ?? [])" }
+            d.actions = { [weak self] name in
+                guard let m = self?.model else { return }
+                switch name {
+                case "snapTest":
+                    if let w = m.roomWin, let s = w.screen?.visibleFrame {
+                        m.forceSnap = true
+                        w.setFrameOrigin(NSPoint(x: s.maxX - w.frame.width - 9, y: s.minY + 6))
+                        m.windowDidMove(Notification(name: NSWindow.didMoveNotification, object: w))
+                        m.forceSnap = false
+                        print("snap result:", w.frame.maxX == s.maxX, w.frame.minY == s.minY, w.frame, s)
+                    }
+                case "openLetterOnly": m.openLetter()
+                case "openAll": m.openChat(); m.openMail(); m.openSettings(); m.openLetter(); m.openProfile(); m.openHelp()
+                case "moveAll":
+                    var y: CGFloat = 200
+                    for w in [m.chatWin, m.mailWin, m.settingsWin, m.letterWin, m.profileWin, m.helpWin] { if let w { var f = w.frame; f.origin = NSPoint(x: 150 + y / 2, y: y); f.size.width += 11; w.setFrame(f, display: true); y += 40 } }
+                case "allFrames":
+                    for (n, w) in [("chat", m.chatWin), ("mail", m.mailWin), ("settings", m.settingsWin), ("letter", m.letterWin), ("profile", m.profileWin), ("help", m.helpWin)] { print("frame", n, w.map { "\(Int($0.frame.minX)),\(Int($0.frame.minY)) w\(Int($0.frame.width))" } ?? "nil") }
+                case "resetLayout": m.resetWindowLayout()
+                case "menuItems": print("menu:", NSApp.mainMenu?.items.compactMap { $0.submenu?.items.map { $0.title } } as Any)
+                case "moveRoom": if let w = m.roomWin { w.setFrame(NSRect(x: 321, y: 123, width: 377, height: 655), display: true) }
+                case "roomFrame": print("roomFrame:", m.roomWin?.frame as Any, "main:", m.mainWin?.frame as Any)
+                case "openChat": m.openChat()
+                case "openMail": m.openMail()
+                case "openSettings": m.openSettings()
+                case "openProfile": m.openProfile()
+                case "openHelp": m.openHelp()
+                case "openCreate": m.createOpen = true
+                case "join0": if let r = m.engine.lobby.rooms.first { m.joinCandidate = r }
+                default: break
+                }
+            }
+            debug = d
+        }
+        NSApp.activate(ignoringOtherApps: true)
+    }
+    func applicationShouldTerminateAfterLastWindowClosed(_ s: NSApplication) -> Bool { false }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { model.mainWin?.makeKeyAndOrderFront(nil) }; return true
+    }
+
+    func buildMenu() {
+        let main = NSMenu()
+        let appItem = NSMenuItem(); main.addItem(appItem)
+        let appMenu = NSMenu(); appItem.submenu = appMenu
+        appMenu.addItem(withTitle: "ぽっと通話について", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "ぽっと通話を隠す", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "ぽっと通話を終了", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let editItem = NSMenuItem(); main.addItem(editItem)
+        let edit = NSMenu(title: "編集"); editItem.submenu = edit
+        edit.addItem(withTitle: "カット", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "コピー", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "ペースト", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "すべてを選択", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        let winItem = NSMenuItem(); main.addItem(winItem)
+        let win = NSMenu(title: "ウインドウ"); winItem.submenu = win
+        win.addItem(withTitle: "しまう", action: #selector(NSWindow.miniaturize(_:)), keyEquivalent: "m")
+        win.addItem(.separator())
+        let reset = NSMenuItem(title: "ウインドウのレイアウトを初期化", action: #selector(AppModel.resetWindowLayoutAction), keyEquivalent: "")
+        reset.target = model
+        win.addItem(reset)
+        NSApp.windowsMenu = win
+        NSApp.mainMenu = main
+    }
+}

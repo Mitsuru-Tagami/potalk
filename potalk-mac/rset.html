@@ -1,0 +1,25 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>部屋の設定</title><style>
+body{margin:0;padding:14px;background:#0d1526;color:#e8eefc;font:14px -apple-system,sans-serif;display:flex;flex-direction:column;gap:12px;user-select:none}
+.r{display:flex;align-items:center;gap:10px}.r .l{width:3.5em;flex:none}.r input[type=range]{flex:1}.r .v{width:3em;text-align:right;color:#8fa0c4;font-size:12px}
+.g{display:flex;flex-direction:column;gap:4px}
+label.o{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:10px;background:rgba(255,255,255,.08);cursor:pointer}
+label.o:has(input:checked){background:rgba(59,130,246,.35);box-shadow:0 0 0 1px #3b82f6 inset}
+.cx{border-top:1px solid rgba(255,255,255,.14);padding-top:12px;display:flex;flex-direction:column;gap:6px}.cx h3{margin:0;font-size:13px;color:#8fa0c4;font-weight:600}.cx .lg{display:flex;gap:8px;align-items:center;font-size:13px}.ic{width:1.3em;text-align:center;font-weight:700}.rl{color:#f6821f}.dr{color:#00e5cc}.cx .mm{display:flex;gap:8px;align-items:center;padding:3px 6px;font-size:13px;color:#cfd8ea}.cx .mm .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.n{color:#8fa0c4;font-size:12px;line-height:1.6}.e{color:#8fa0c4;text-align:center;margin-top:30px}
+</style></head><body><div id="root"><div class="e">部屋に入ると、ここに設定が出ます。</div></div>
+<script>
+const $=id=>document.getElementById(id),root=document.getElementById('root'),mk=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+let sig='',busy=0;
+pm.onState(s=>{const list=s.settings||[];const g=JSON.stringify(list);if(g===sig||Date.now()<busy)return;sig=g;
+ root.replaceChildren();if(!list.length){root.append(mk('div','e','部屋に入ると、ここに設定が出ます。'));return}
+ for(const it of list){
+  if(it.k==='range'){const r=mk('div','r');const i=document.createElement('input');i.type='range';i.min=it.min;i.max=it.max;i.step=it.step;i.value=it.value;
+   const v=mk('span','v',it.value+'%');i.oninput=()=>{v.textContent=i.value+'%';busy=Date.now()+600;pm.cmd({type:'set',id:it.id,value:i.value})};r.append(mk('span','l',it.label),i,v);root.append(r)}
+  else if(it.k==='radios'){const g=mk('div','g');for(const o of it.items){const l=mk('label','o');const i=document.createElement('input');i.type='radio';i.name='r';i.checked=o.checked;
+   i.onchange=()=>pm.cmd({type:'set',id:o.id,value:true});l.append(i,document.createTextNode(o.label));g.append(l)}root.append(g)}
+  else if(it.k==='check'){const l=mk('label','o');const i=document.createElement('input');i.type='checkbox';i.checked=it.checked;i.onchange=()=>pm.cmd({type:'set',id:it.id,value:i.checked});l.append(i,document.createTextNode(it.label));root.append(l)}
+  else if(it.k==='note')root.append(mk('div','n',it.text));
+ }});
+</script></body></html>

@@ -1,0 +1,11 @@
+# 参照用に複製した元サイト（別のリポジトリ）
+src-site/
+
+# ビルド生成物・依存
+node_modules/
+dist/
+build/
+.build/
+.swiftpm/
+*.o
+.DS_Store
