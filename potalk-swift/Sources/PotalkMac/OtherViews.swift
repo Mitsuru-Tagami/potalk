@@ -195,7 +195,8 @@ struct HelpView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                Text("🫖 これはなに？").font(.system(size: 20, weight: .bold))
+                Text("⚠️ Potalker は、ぽっと通話（potalk.app）の「非公式」クライアントです。サイトの作者とは関係がありません。").font(.system(size: 12, weight: .semibold)).padding(10).frame(maxWidth: .infinity, alignment: .leading).background(RoundedRectangle(cornerRadius: 8).fill(Color.orange.opacity(0.15)))
+                Text("🫖 ぽっと通話とは").font(.system(size: 20, weight: .bold))
                 Text("登録なし・インストールなしで、居合わせた人と声だけで話せる小さなお茶の席です。同じ部屋を開いた人どうしが、そのまま話せます。")
                 Text("⚠️ 実験中です。ご利用は自己責任で！").font(.system(size: 14, weight: .semibold)).foregroundColor(.orange)
                 VStack(alignment: .leading, spacing: 6) {
@@ -205,7 +206,7 @@ struct HelpView: View {
                     Link("運営（制作者と方針）", destination: URL(string: "https://potalk.app/about/")!)
                 }
                 Divider()
-                Text("このアプリは、通話の仕組みに potalk.app をそのまま使い、画面だけを Mac 用に作り直したものです。").font(.caption).foregroundColor(.secondary)
+                Text("Potalker は、通話の仕組みに potalk.app をそのまま使い、画面だけを Mac 用に作り直した非公式のアプリです。").font(.caption).foregroundColor(.secondary)
             }.padding(20)
         }.frame(minWidth: 380, minHeight: 420)
     }

@@ -12,7 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         engine.start()
         buildMenu()
         let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 820), styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
-        w.title = "ぽっと通話"
+        w.title = "Potalker（ぽっと通話 非公式クライアント）"
         w.contentView = NSHostingView(rootView: MainView().environmentObject(model).environmentObject(engine))
         w.contentMinSize = NSSize(width: 360, height: 420)
         w.isReleasedWhenClosed = false
@@ -71,15 +71,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !flag { model.mainWin?.makeKeyAndOrderFront(nil) }; return true
     }
 
+    @objc func showAbout() {
+        let credits = NSAttributedString(string: "ぽっと通話（potalk.app）の非公式クライアントです。\nサイトの作者とは関係ありません。通話の仕組みは potalk.app をそのまま利用しています。", attributes: [.font: NSFont.systemFont(ofSize: 12)])
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Potalker", .credits: credits])
+    }
+
     func buildMenu() {
         let main = NSMenu()
         let appItem = NSMenuItem(); main.addItem(appItem)
         let appMenu = NSMenu(); appItem.submenu = appMenu
-        appMenu.addItem(withTitle: "ぽっと通話について", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        let about = NSMenuItem(title: "Potalker について", action: #selector(AppDelegate.showAbout), keyEquivalent: ""); about.target = self; appMenu.addItem(about)
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "ぽっと通話を隠す", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        appMenu.addItem(withTitle: "Potalker を隠す", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "ぽっと通話を終了", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "Potalker を終了", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         let editItem = NSMenuItem(); main.addItem(editItem)
         let edit = NSMenu(title: "編集"); editItem.submenu = edit
         edit.addItem(withTitle: "カット", action: #selector(NSText.cut(_:)), keyEquivalent: "x")

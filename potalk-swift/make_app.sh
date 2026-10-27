@@ -1,5 +1,5 @@
 #!/bin/bash
-# 使い方: ./make_app.sh [debug|release|universal]   → build/ぽっと通話.app を作る（universal は Apple Silicon と Intel の両対応）
+# 使い方: ./make_app.sh [debug|release|universal]   → build/Potalker.app を作る（universal は Apple Silicon と Intel の両対応）
 set -e
 CFG="${1:-release}"
 cd "$(dirname "$0")"
@@ -10,22 +10,25 @@ else
   swift build -c "$CFG" 2>&1 | tail -3
   BIN=".build/$CFG/PotalkMac"
 fi
-APP="build/ぽっと通話.app"
+NAME="Potalker"
+VER="0.2.0"
+APP="build/$NAME.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN" "$APP/Contents/MacOS/PotalkMac"
+cp "$BIN" "$APP/Contents/MacOS/$NAME"
 [ -f ../potalk-mac/icon.icns ] && cp ../potalk-mac/icon.icns "$APP/Contents/Resources/icon.icns"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-<key>CFBundleName</key><string>ぽっと通話</string>
-<key>CFBundleDisplayName</key><string>ぽっと通話</string>
-<key>CFBundleIdentifier</key><string>app.potalk.mac</string>
-<key>CFBundleExecutable</key><string>PotalkMac</string>
+<key>CFBundleName</key><string>Potalker</string>
+<key>CFBundleDisplayName</key><string>Potalker</string>
+<key>CFBundleIdentifier</key><string>app.potalker.mac</string>
+<key>CFBundleExecutable</key><string>Potalker</string>
+<key>NSHumanReadableCopyright</key><string>ぽっと通話（potalk.app）の非公式クライアントです。サイトの作者とは関係ありません。</string>
 <key>CFBundleIconFile</key><string>icon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.0</string>
+<key>CFBundleShortVersionString</key><string>$VER</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSHighResolutionCapable</key><true/>
