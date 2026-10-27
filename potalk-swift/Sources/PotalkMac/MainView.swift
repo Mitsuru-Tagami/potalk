@@ -112,10 +112,9 @@ struct RoomCard: View {
                 Spacer()
                 Text(room.count).font(.system(size: 13, weight: .bold)).foregroundColor(tealColor)
                 Button {
-                    let enc = room.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
                     let idEnc = room.id.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? room.id
                     NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString("\(room.name)\nhttps://potalk.app/#room=\(idEnc)&name=\(enc)", forType: .string)
+                    NSPasteboard.general.setString("\(room.name)\nhttps://potalk.app/#room=\(idEnc)", forType: .string)
                     copied = true; DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { copied = false }
                 } label: { Image(systemName: copied ? "checkmark" : "square.and.arrow.up") }
                 .buttonStyle(.plain).help("部屋名とリンクをコピー")

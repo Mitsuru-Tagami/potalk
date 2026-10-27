@@ -51,6 +51,9 @@ enum PagePatcher {
         Patch(find: "try { $('cropDlg').showModal() } catch { finish(null) }", replace: { _ in "try { $('cropDlg').show() } catch { finish(null) }" }),
         Patch(find: "try { $('cardEditDlg').showModal() } catch {}", replace: { _ in "try { $('cardEditDlg').show() } catch {}" }),
         Patch(find: "try { $('cardAuthDlg').showModal() } catch {}", replace: { _ in "try { $('cardAuthDlg').show() } catch {}" }),
+        // 共有するURLには、部屋の名前（&name=…）を付けない（部屋のIDだけで入れる）
+        Patch(find: "const roomUrl = (id, name) => location.origin + location.pathname + '#room=' + id + (name ? '&name=' + encodeURIComponent(name) : '')", replace: { _ in
+            "const roomUrl = (id, name) => location.origin + location.pathname + '#room=' + id" }),
         Patch(find: "btn.onclick = () => askRoom(room, lobbyName(room, people))", replace: { "btn.dataset.room = room; " + $0 }),
         Patch(find: "const flyReaction = (uid, idx) => {\n", replace: {
             $0 + "  try { window.__pm && window.__pm.react(uid, idx, REACTIONS[idx], uid === 'self' ? '' : ((call.profiles.get(uid) || {}).name || '')) } catch {}\n" }),
