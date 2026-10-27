@@ -32,6 +32,7 @@ button:disabled:hover{background:transparent}
   <span class="pm-mic"><button type="button" tabindex="-1"><span class="ic">🎤</span><span class="lb">入力設定</span></button><select id="micSel" aria-label="入力設定（マイク）"></select></span>
   <button id="helpB"><span class="ic">？</span><span class="lb">これは<br>なに？</span></button>
   <button id="mode"><span class="ic">🪟</span><span class="lb">バラバラに<br>切り替え</span></button>
+  <button id="quitB"><span class="ic">⏻</span><span class="lb">終了</span></button>
 </nav>
 <div id="main">読み込み中…</div>
 <script>
@@ -42,6 +43,7 @@ document.getElementById('avatar').onclick=()=>shellPm.click('profile');
 document.getElementById('createB').onclick=()=>shellPm.click('create');
 document.getElementById('helpB').onclick=()=>shellPm.click('help');
 document.getElementById('mode').onclick=()=>shellPm.mode();
+document.getElementById('quitB').onclick=()=>shellPm.quit();
 const micSel=document.getElementById('micSel');
 micSel.onchange=()=>shellPm.micSelect(micSel.value);
 shellPm.onProfile(p=>{

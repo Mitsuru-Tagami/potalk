@@ -374,6 +374,7 @@ async function createWindow() {
     selectTab(tab);
   });
   ipcMain.on('shell:mode', e => { if (unified && e.sender === win.webContents) requestModeChange('split'); });
+  ipcMain.on('shell:quit', e => { if (unified && e.sender === win.webContents) app.quit(); });
   // 統合モードでは、ページ側のバーにあった操作（設定・部屋作り・ヘルプ）を左タブへ移す。
   // 実処理はページ側の既存ボタンをそのまま押すことで流用する。
   ipcMain.on('shell:click', (e, name) => {
@@ -499,7 +500,10 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((wc, perm, cb, d) => cb(ok(wc, perm, d.requestingUrl)));
   session.defaultSession.setPermissionCheckHandler((wc, perm, origin) => ok(wc, perm, origin));
   uiMode = loadUiMode();
-  buildMenu();
+  // 統合モードでは上のメニューバーを出さない（モード切替と終了は左タブにある）。
+  // バラバラモードでは、統合へ戻る入口と終了のためにメニューを残す。
+  if (uiMode === 'unified') Menu.setApplicationMenu(null);
+  else buildMenu();
   createWindow();
   app.on('activate', () => BrowserWindow.getAllWindows().length || createWindow());
 });
