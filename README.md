@@ -1,10 +1,21 @@
-# Potalker（ぽっと通話 非公式 Mac クライアント）
+# Potalker（ぽっと通話 非公式クライアント）
 
-> **これは非公式のクライアントです。** [ぽっと通話（potalk.app）](https://potalk.app/) の作者とは関係がありません。通話の仕組み（Nostr での相手探しと WebRTC）は、サイトのページをそのまま利用し、画面まわりだけを Mac 向けに作り直しています。ご利用は自己責任でお願いします。
+> **これは非公式のクライアントです。** [ぽっと通話（potalk.app）](https://potalk.app/) の作者とは関係がありません。通話の仕組み（Nostr での相手探しと WebRTC）は、サイトのページをそのまま利用し、画面まわりだけを、Mac と Windows 向けに、それぞれ作り直しています。ご利用は自己責任でお願いします。
+
+## 対応している OS
+
+| OS | 状態 | 場所 |
+|---|---|---|
+| **macOS**（14 以降） | 対応しています | `potalk-swift/`（Swift 製） |
+| **Windows** | 対応しています | `potalk-win/`（C# / WPF / WebView2 製） |
+| **Linux** | **対応していません。他の方の貢献に期待しています。** | － |
+
+- Linux は、手が回っていません。Electron 版（`potalk-mac/`）が、Linux で動いたという報告はありますが、私は確認していません。Linux 向けに、きちんと作ってくださる方がいれば、プルリクエストや Issue を、お待ちしています。
 
 | フォルダ | 中身 |
 |---|---|
-| `potalk-swift/` | Swift 製（AppKit / SwiftUI）の **Potalker**。通話の仕組みは、画面に出ない WKWebView で動かす。**こちらが本命。** |
+| `potalk-swift/` | Swift 製（AppKit / SwiftUI）の **Potalker**（Mac 版）。通話の仕組みは、画面に出ない WKWebView で動かす。 |
+| `potalk-win/` | C# 製（WPF / WebView2）の **Potalker**（Windows 版）。考え方は Mac 版と同じ。 |
 | `potalk-mac/` | Electron 製（先に作った試作版）。 |
 
 ## ダウンロード（Swift 版）
