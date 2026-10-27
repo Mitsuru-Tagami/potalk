@@ -43,7 +43,7 @@ public sealed class AppModel
 
     public void Start()
     {
-        tray = new System.Windows.Forms.NotifyIcon { Icon = System.Drawing.SystemIcons.Application, Visible = true, Text = "Potalker" };
+        tray = new System.Windows.Forms.NotifyIcon { Icon = System.Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath) ?? System.Drawing.SystemIcons.Application, Visible = true, Text = "Potalker" };
         tray.BalloonTipClicked += (_, _) => { Main?.Show(); Main?.Activate(); };
         Application.Current.Exit += (_, _) => { tray.Visible = false; tray.Dispose(); };
 
