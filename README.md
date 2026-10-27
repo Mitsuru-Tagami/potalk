@@ -47,3 +47,7 @@ npm start
 - 実験用の非公式クライアントです。通話の相手探しや中継（TURN）は、potalk.app と同じ仕組みを使っています。
 - サイト本体（potalk.app）の作者は別の方です。このリポジトリには、サイトのソースは含めていません。
 - 「ぽっと通話」「potalk」の名前とサイトは、それぞれの作者のものです。
+
+## ライセンス
+
+このリポジトリのコードは [MIT License](LICENSE) です（Copyright (c) 2026 riryo3）。参考にしたリポジトリのライセンスの表示は、[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) にあります。
