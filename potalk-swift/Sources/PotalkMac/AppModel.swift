@@ -23,6 +23,9 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     @Published var notifyRooms: Bool { didSet { UserDefaults.standard.set(notifyRooms, forKey: "notifyRooms") } }
     @Published var mics: [String] = []            // 起動時に Mac から直接取る入力デバイスの名前
     @Published var selectedMic: String { didSet { UserDefaults.standard.set(selectedMic, forKey: "micLabel"); engine.cmd(["type": "setMicLabel", "label": selectedMic]) } }
+    @Published var muteOnCreate: Bool { didSet { UserDefaults.standard.set(muteOnCreate, forKey: "muteOnCreate") } }
+    @Published var muteOnJoin: Bool { didSet { UserDefaults.standard.set(muteOnJoin, forKey: "muteOnJoin") } }
+    private var pendingMute: (at: Date, target: Bool)?   // 作成・入室の直後だけ、設定の状態（ミュート／解除）にそろえる（つなぎ直しでは触らない）
     @Published var pinRoom = true
     @Published var joinCandidate: LobbyRoom?       // 「参加しますか？」を出す部屋
     @Published var createOpen = false
@@ -54,6 +57,8 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
         let d = UserDefaults.standard
         notifyRooms = d.object(forKey: "notifyRooms") as? Bool ?? true
         selectedMic = d.string(forKey: "micLabel") ?? ""
+        muteOnCreate = d.object(forKey: "muteOnCreate") as? Bool ?? true
+        muteOnJoin = d.object(forKey: "muteOnJoin") as? Bool ?? true
         super.init()
         engine.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &bag)
         engine.onChat = { [weak self] l in self?.receive(chat: l) }
@@ -95,6 +100,11 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
             if r.joined { openRoom() } else { closeRoomGroup() }
         }
         guard r.joined else { return }
+        // 作成・入室の直後は、設定に合わせてミュートにそろえる（マイクが取れて、ミュートの操作ができるようになってから1回だけ）
+        if let p = pendingMute {
+            if Date().timeIntervalSince(p.at) > 15 { pendingMute = nil }
+            else if r.canMute { pendingMute = nil; if r.muted != p.target { engine.cmd(["type": "mute"]) } }
+        }
         // 配信者側：手が挙がったら音
         let hands = r.members.filter { $0.mark == "🙋" }.count
         if hands > lastHands { NSSound(named: "Glass")?.play() }
@@ -138,8 +148,8 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent n: UNNotification) async -> UNNotificationPresentationOptions { [.banner] }
 
     // MARK: 指示
-    func join(_ r: LobbyRoom, quiet: Bool) { engine.cmd(["type": "join", "id": r.id, "quiet": quiet]); joinCandidate = nil }
-    func createRoom(name: String, broadcast: Bool) { engine.cmd(["type": "create", "name": name, "kind": broadcast ? "bc" : "chat"]); createOpen = false }
+    func join(_ r: LobbyRoom, quiet: Bool) { pendingMute = (Date(), muteOnJoin); engine.cmd(["type": "join", "id": r.id, "quiet": quiet]); joinCandidate = nil }
+    func createRoom(name: String, broadcast: Bool) { pendingMute = (Date(), muteOnCreate); engine.cmd(["type": "create", "name": name, "kind": broadcast ? "bc" : "chat"]); createOpen = false }
     func sendChat(_ t: String) { engine.cmd(["type": "chat", "text": t]) }
     func refreshLobby() { engine.cmd(["type": "refreshLobby"]) }
     /// 入力デバイスの一覧（マイクの許可がなくても名前は取れる）

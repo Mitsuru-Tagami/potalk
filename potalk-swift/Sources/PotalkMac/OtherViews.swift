@@ -155,6 +155,7 @@ struct RoomSettingsView: View {
 // MARK: 初期設定（名前・アバター）
 struct ProfileView: View {
     @EnvironmentObject var engine: Engine
+    @EnvironmentObject var model: AppModel
     @State private var name = ""
     @State private var loaded = false
     var body: some View {
@@ -181,11 +182,16 @@ struct ProfileView: View {
                 }
             }
             Button("📇 名刺（プロフィールカード）を設定…") { engine.cmd(["type": "cardEdit"]) }.frame(maxWidth: .infinity)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("部屋に入るとき").font(.caption).foregroundColor(.secondary)
+                Toggle("部屋を作るとき、ミュートで始める", isOn: $model.muteOnCreate)
+                Toggle("部屋に入るとき、ミュートで始める", isOn: $model.muteOnJoin)
+            }
             Spacer()
             Text("名前・アバターを変えると、次に入る部屋から反映されます。").font(.caption).foregroundColor(.secondary)
             Text(engine.profile.version).font(.caption2).foregroundColor(.secondary)
         }
-        .padding(20).frame(minWidth: 400, minHeight: 360)
+        .padding(20).frame(minWidth: 400, minHeight: 420)
         .onAppear { if !loaded { name = engine.profile.input; loaded = true } }
     }
 }
