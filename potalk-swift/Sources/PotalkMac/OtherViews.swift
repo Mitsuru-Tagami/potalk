@@ -204,6 +204,7 @@ struct HelpView: View {
                     Link("使い方（画面の順に説明）", destination: URL(string: "https://potalk.app/manual/")!)
                     Link("しくみ（サーバなしで動く理由）", destination: URL(string: "https://potalk.app/tech/")!)
                     Link("運営（制作者と方針）", destination: URL(string: "https://potalk.app/about/")!)
+                Link("ソース（po-talk/po-talk.github.io）", destination: URL(string: "https://github.com/po-talk/po-talk.github.io")!)
                 }
                 Divider()
                 Text("Potalker は、通話の仕組みに potalk.app をそのまま使い、画面だけを Mac 用に作り直した非公式のアプリです。").font(.caption).foregroundColor(.secondary)

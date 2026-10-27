@@ -72,7 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func showAbout() {
-        let credits = NSAttributedString(string: "ぽっと通話（potalk.app）の非公式クライアントです。\nサイトの作者とは関係ありません。通話の仕組みは potalk.app をそのまま利用しています。", attributes: [.font: NSFont.systemFont(ofSize: 12)])
+        let credits = NSAttributedString(string: "ぽっと通話（potalk.app）の非公式クライアントです。\nサイトの作者とは関係ありません。通話の仕組みは potalk.app をそのまま利用しています。\nご参考：github.com/po-talk/po-talk.github.io", attributes: [.font: NSFont.systemFont(ofSize: 12)])
         NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Potalker", .credits: credits])
     }
 
