@@ -265,6 +265,7 @@ enum BridgeJS {
             case 'caCancel': click($('caCancelBtn')); break;
             case 'reconnect': click($('retry')); break;
             case 'entryTry': click($('entryTry')); break;
+            case 'entryJoin': click($('join')); break;
             case 'refreshLobby': click($('lobbyRefresh')); break;
             case 'setName': { const n = $('name'); if (n) { n.value = String(c.name).slice(0, 20); n.dispatchEvent(new Event('input', { bubbles: true })); n.dispatchEvent(new Event('change', { bubbles: true })); } break; }
             case 'setAvatar': click(($('avatars') || {}).children && $('avatars').children[c.i | 0]); break;

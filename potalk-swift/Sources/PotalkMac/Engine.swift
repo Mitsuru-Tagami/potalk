@@ -71,14 +71,30 @@ final class Engine: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelega
         webView.loadHTMLString(out, baseURL: base)
     }
 
-    /// 部屋のリンクで入る：そのリンクでページを読み込み直し、入口案内の「このまま入ってみる」を押す
-    func openLink(_ text: String) {
+    enum LinkResult { case joined, asleep, choose, timeout }
+    /// 部屋のリンクで入る：そのリンクでページを読み込み直し、ページの入口の案内が「いま開いています」になって
+    /// 部屋の名前が入ったら、参加を押す（名前なしのリンクでも、開いている部屋なら、名前は自動で入る）
+    func openLink(_ text: String, done: ((LinkResult) -> Void)? = nil) {
         guard let r = text.range(of: "#room=") else { return }
         let hash = String(text[r.lowerBound...]).split(whereSeparator: { $0 == " " || $0 == "\n" }).first.map(String.init) ?? ""
         Task {
             ready = false
             await load(hash: hash)
-            for _ in 0..<20 { try? await Task.sleep(nanoseconds: 500_000_000); if room.joined { break }; cmd(["type": "entryTry"]) }
+            let probe = "JSON.stringify({t: (document.getElementById('entryText')||{}).textContent||'', n: !!(document.getElementById('entryNote')&&!document.getElementById('entryNote').hidden), name: (document.getElementById('room')||{}).value||''})"
+            var asleepSince = 0
+            for i in 0..<80 {   // 最大 40 秒
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                if room.joined { done?(.joined); return }
+                guard ready else { continue }
+                let json: String? = await withCheckedContinuation { c in self.eval(probe) { r, _ in c.resume(returning: r as? String) } }
+                guard let json, let d = json.data(using: .utf8), let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { continue }
+                let t = o["t"] as? String ?? "", name = o["name"] as? String ?? ""
+                if t.contains("いま開いています") && !name.isEmpty { cmd(["type": "entryJoin"]); for _ in 0..<40 { try? await Task.sleep(nanoseconds: 500_000_000); if room.joined { done?(.joined); return } }; done?(.timeout); return }
+                if t.contains("同じ名前の部屋") { done?(.choose); return }
+                if t.contains("😴") { asleepSince += 1; if asleepSince > 2 { done?(.asleep); return } } else { asleepSince = 0 }
+                _ = i
+            }
+            done?(.timeout)
         }
     }
 

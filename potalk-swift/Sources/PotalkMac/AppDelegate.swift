@@ -52,7 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 case "menuItems": print("menu:", NSApp.mainMenu?.items.compactMap { $0.submenu?.items.map { $0.title } } as Any)
                 case "moveRoom": if let w = m.roomWin { w.setFrame(NSRect(x: 321, y: 123, width: 377, height: 655), display: true) }
                 case "roomFrame": print("roomFrame:", m.roomWin?.frame as Any, "main:", m.mainWin?.frame as Any)
-                case "openLinkGreeter": if let r = m.engine.lobby.rooms.first(where: { $0.name.contains("ようこそ") }) { m.engine.openLink("https://potalk.app/#room=\(r.id)") }
+                case "openLinkGreeter": if let r = m.engine.lobby.rooms.first(where: { $0.name.contains("ようこそ") }) { m.openRoomLink("https://potalk.app/#room=\(r.id)") }
                 case "createRoom": m.createRoom(name: "ミュート試験", broadcast: false)
                 case "setMuteOnCreate": m.muteOnCreate = false
                 case "setMuteOnJoin": m.muteOnJoin = false

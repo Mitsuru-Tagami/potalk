@@ -150,6 +150,24 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
     // MARK: 指示
     func join(_ r: LobbyRoom, quiet: Bool) { pendingMute = (Date(), muteOnJoin); engine.cmd(["type": "join", "id": r.id, "quiet": quiet]); joinCandidate = nil }
     func createRoom(name: String, broadcast: Bool) { pendingMute = (Date(), muteOnCreate); engine.cmd(["type": "create", "name": name, "kind": broadcast ? "bc" : "chat"]); createOpen = false }
+    /// 部屋のリンク（名前なしでもよい）で入る。入れなかったときは、理由を知らせる
+    func openRoomLink(_ text: String) {
+        pendingMute = (Date(), muteOnJoin)
+        search = ""
+        engine.openLink(text) { [weak self] r in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                let msg: String?
+                switch r {
+                case .joined: msg = nil
+                case .asleep: msg = "この部屋は、いま開いていないようです。（見つけるのに時間がかかっているだけのこともあります）"
+                case .choose: msg = "同じ名前の部屋が、いくつか開いています。一覧から選んでください。"
+                case .timeout: msg = "部屋に入れませんでした。もう一度お試しください。"
+                }
+                if let msg { self.pendingMute = nil; let a = NSAlert(); a.messageText = "リンクの部屋に入れません"; a.informativeText = msg; a.runModal() }
+            }
+        }
+    }
     func sendChat(_ t: String) { engine.cmd(["type": "chat", "text": t]) }
     func refreshLobby() { engine.cmd(["type": "refreshLobby"]) }
     /// 入力デバイスの一覧（マイクの許可がなくても名前は取れる）

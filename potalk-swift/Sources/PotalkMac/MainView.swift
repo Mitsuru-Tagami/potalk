@@ -85,7 +85,7 @@ struct MainView: View {
         VStack(spacing: 10) {
             if let id = linkID {
                 Text("このリンクの部屋は、いま通話中の一覧にありません（お休み中かもしれません）。").multilineTextAlignment(.center)
-                Button("このリンクの部屋に入ってみる") { _ = id; engine.openLink(model.search) }
+                Button("このリンクの部屋に入ってみる") { _ = id; model.openRoomLink(model.search) }
             } else {
                 Text("「\(model.search)」に合う部屋は見つかりません。")
             }
