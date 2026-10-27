@@ -161,13 +161,13 @@ final class AppModel: NSObject, ObservableObject, NSWindowDelegate, UNUserNotifi
                 let msg: String?
                 switch r {
                 case .joined: msg = nil
-                case .asleep: msg = "この部屋は、いま開いていないようです。（見つけるのに時間がかかっているだけのこともあります）"
+                case .asleep: msg = "この部屋は見つかりません。存在しないか、すでに終了しています。"
                 case .choose: msg = "同じ名前の部屋が、いくつか開いています。一覧から選んでください。"
-                case .invalid: msg = "このリンクは、部屋のリンクとして読み取れませんでした。リンクが、途中で切れていないか、確かめてください。"
+                case .invalid: msg = "この部屋は見つかりません。存在しないか、すでに終了しています。"
                 case .timeout: msg = "部屋に入れませんでした。もう一度お試しください。"
                 }
                 if let msg, ProcessInfo.processInfo.environment["POTALK_DEBUG"] == "1" { print("link message:", msg); self.pendingMute = nil; return }
-                if let msg { self.pendingMute = nil; let a = NSAlert(); a.messageText = "リンクの部屋に入れません"; a.informativeText = msg; a.runModal() }
+                if let msg { self.pendingMute = nil; let a = NSAlert(); a.messageText = "部屋に入れません"; a.informativeText = msg; a.runModal() }
             }
         }
     }
