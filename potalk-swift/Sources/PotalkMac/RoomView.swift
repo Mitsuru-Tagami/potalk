@@ -239,7 +239,7 @@ struct RoomView: View {
                     Button { engine.cmd(["type": "cardClose"]) } label: { Image(systemName: "xmark").font(.system(size: 12, weight: .bold)).frame(width: 30, height: 30).background(Circle().fill(Color.primary.opacity(0.1))) }.buttonStyle(.plain)
                 }
                 Divider()
-                if !c.bio.isEmpty { Text(c.bio).font(.system(size: 14)).textSelection(.enabled) }
+                if !c.bio.isEmpty { Text(linkified(c.bio)).font(.system(size: 14)).textSelection(.enabled) }
                 if !c.socials.isEmpty {
                     FlowLayout { ForEach(Array(c.socials.enumerated()), id: \.offset) { _, s in
                         Button(s.t.isEmpty ? s.u : s.t) { model.confirmOpen(s.u, from: model.roomWin) }.buttonStyle(.link).font(.system(size: 13))
@@ -260,6 +260,7 @@ struct RoomView: View {
             .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.primary.opacity(0.15)))
             .padding(14)
         }
+        .environment(\.openURL, OpenURLAction { url in model.confirmOpen(url.absoluteString, from: model.roomWin); return .handled })
     }
 
     func ignoreOverlay(_ a: IgnoreAsk) -> some View {
