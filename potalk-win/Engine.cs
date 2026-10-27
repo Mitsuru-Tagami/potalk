@@ -141,15 +141,47 @@ public sealed class Engine
         _ = wv.CoreWebView2.ExecuteScriptAsync("window.__pm && window.__pm.cmd(" + JsonSerializer.Serialize(dict) + ")");
     }
 
-    /// <summary>部屋のリンクで入る：そのリンクでページを読み込み直し、入口案内の「このまま入ってみる」を押す</summary>
-    public async void OpenLink(string text)
+    public enum LinkResult { Joined, Asleep, Choose, Timeout }
+
+    /// <summary>
+    /// 部屋のリンクで入る：そのリンクでページを読み込み直し、入口の案内が「いま開いています」になって
+    /// 部屋の名前が入ったら、参加を押す（名前なしのリンクでも、開いている部屋なら、名前は自動で入る）。
+    /// </summary>
+    public async void OpenLink(string text, Action<LinkResult> done)
     {
         var i = text.IndexOf("#room=", StringComparison.Ordinal);
         if (i < 0) return;
         var hash = text[i..].Split(' ', '\n', '\r')[0];
         Ready = false;
         wv.CoreWebView2.Navigate(Home + hash);
-        for (int n = 0; n < 20 && !Joined; n++) { await Task.Delay(500); Cmd(new { type = "entryTry" }); }
+        // 「#」以降だけが変わる移動は、読み込み直しにならない。必ず読み込み直して、差し込み済みのページで始める
+        await Task.Delay(150);
+        wv.CoreWebView2.Reload();
+        const string probe = "JSON.stringify({t: (document.getElementById('entryText')||{}).textContent||'', n: !!(document.getElementById('entryNote')&&!document.getElementById('entryNote').hidden), name: (document.getElementById('room')||{}).value||''})";
+        int asleep = 0;
+        for (int n = 0; n < 80; n++)   // 最大 40 秒
+        {
+            await Task.Delay(500);
+            if (Joined) { done(LinkResult.Joined); return; }
+            if (!Ready) continue;
+            string t, name;
+            try
+            {
+                var raw = await wv.CoreWebView2.ExecuteScriptAsync(probe);      // 文字列の JSON が、さらに文字列として返る
+                var o = JsonDocument.Parse(JsonSerializer.Deserialize<string>(raw)).RootElement;
+                t = o.S("t"); name = o.S("name");
+            }
+            catch { continue; }
+            if (t.Contains("いま開いています") && name.Length > 0)
+            {
+                Cmd(new { type = "entryJoin" });
+                for (int k = 0; k < 40; k++) { await Task.Delay(500); if (Joined) { done(LinkResult.Joined); return; } }
+                done(LinkResult.Timeout); return;
+            }
+            if (t.Contains("同じ名前の部屋")) { done(LinkResult.Choose); return; }
+            if (t.Contains("😴")) { if (++asleep > 2) { done(LinkResult.Asleep); return; } } else asleep = 0;
+        }
+        done(LinkResult.Timeout);
     }
 
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern int GetWindowLong(IntPtr h, int i);

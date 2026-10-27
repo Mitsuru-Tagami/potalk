@@ -160,7 +160,7 @@ public sealed class MainWindow : Window
             if (q.Length > 0 && link != null)
             {
                 sp.Children.Add(Ui.Txt("このリンクの部屋は、いま通話中の一覧にありません（お休み中かもしれません）。", 13, Ui.Dim, wrap: true));
-                var b = Ui.Btn("このリンクの部屋に入ってみる", () => M.E.OpenLink(search.Text)); b.Margin = new Thickness(0, 10, 0, 0);
+                var b = Ui.Btn("このリンクの部屋に入ってみる", () => { var link = search.Text; search.Text = ""; M.OpenRoomLink(link); }); b.Margin = new Thickness(0, 10, 0, 0);
                 sp.Children.Add(b);
             }
             else sp.Children.Add(Ui.Txt(q.Length > 0 ? $"「{q}」に合う部屋は見つかりません。" : "いま通話中の部屋はありません", 13, Ui.Dim));

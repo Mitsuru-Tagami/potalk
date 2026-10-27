@@ -36,6 +36,9 @@ public static class PagePatcher
         new("try { $('cardEditDlg').showModal() } catch {}", _ => "try { $('cardEditDlg').show() } catch {}"),
         new("try { $('cardAuthDlg').showModal() } catch {}", _ => "try { $('cardAuthDlg').show() } catch {}"),
         new("btn.onclick = () => askRoom(room, lobbyName(room, people))", f => "btn.dataset.room = room; " + f),
+        // 共有する部屋のURLから &name= を外す（ページ側の共有リンクと、ロビーのコピーの両方）
+        new("const roomUrl = (id, name) => location.origin + location.pathname + '#room=' + id + (name ? '&name=' + encodeURIComponent(name) : '')",
+            _ => "const roomUrl = (id, name) => location.origin + location.pathname + '#room=' + id"),
         new("const flyReaction = (uid, idx) => {\n", f =>
             f + "  try { window.__pm && window.__pm.react(uid, idx, REACTIONS[idx], uid === 'self' ? '' : ((call.profiles.get(uid) || {}).name || '')) } catch {}\n"),
     };

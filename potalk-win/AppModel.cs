@@ -156,6 +156,24 @@ public sealed class AppModel
         pendingMute = (DateTime.Now, S.MuteOnCreate);
         E.Cmd(new { type = "create", name, kind = broadcast ? "bc" : "chat" });
     }
+    /// <summary>部屋のリンク（名前なしでもよい）で入る。入れなかったときは、理由を知らせる。</summary>
+    public void OpenRoomLink(string text)
+    {
+        pendingMute = (DateTime.Now, S.MuteOnJoin);
+        E.OpenLink(text, r => Application.Current.Dispatcher.Invoke(() =>
+        {
+            string msg = r switch
+            {
+                Engine.LinkResult.Asleep => "この部屋は、いま開いていないようです。（見つけるのに時間がかかっているだけのこともあります）",
+                Engine.LinkResult.Choose => "同じ名前の部屋が、いくつか開いています。一覧から選んでください。",
+                Engine.LinkResult.Timeout => "部屋に入れませんでした。もう一度お試しください。",
+                _ => null,
+            };
+            if (msg == null) return;
+            pendingMute = null;
+            MessageBox.Show(Main, msg, "リンクの部屋に入れません", MessageBoxButton.OK, MessageBoxImage.Information);
+        }));
+    }
     public void SendChat(string t) => E.Cmd(new { type = "chat", text = t });
 
     public void SwitchMic(string name)
