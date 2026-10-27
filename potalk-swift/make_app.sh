@@ -41,5 +41,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <key>NSPrincipalClass</key><string>NSApplication</string>
 </dict></plist>
 PLIST
-codesign --force --deep --sign - "$APP" 2>&1 | tail -1
+# 署名: 環境変数 CODESIGN_ID に署名用の証明書名を入れると、それで署名する（既定は簡易署名）。
+# 署名の素性が変わらなければ、キーチェーンの「常に許可」が、ビルドし直しても効き続ける。
+codesign --force --deep --sign "${CODESIGN_ID:--}" "$APP" 2>&1 | tail -1
 echo "built: $APP"
