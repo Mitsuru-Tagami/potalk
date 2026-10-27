@@ -71,7 +71,7 @@ final class Engine: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelega
         webView.loadHTMLString(out, baseURL: base)
     }
 
-    enum LinkResult { case joined, asleep, choose, timeout }
+    enum LinkResult { case joined, asleep, choose, invalid, timeout }
     /// 部屋のリンクで入る：そのリンクでページを読み込み直し、ページの入口の案内が「いま開いています」になって
     /// 部屋の名前が入ったら、参加を押す（名前なしのリンクでも、開いている部屋なら、名前は自動で入る）
     func openLink(_ text: String, done: ((LinkResult) -> Void)? = nil) {
@@ -81,7 +81,7 @@ final class Engine: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelega
             ready = false
             await load(hash: hash)
             let probe = "JSON.stringify({t: (document.getElementById('entryText')||{}).textContent||'', n: !!(document.getElementById('entryNote')&&!document.getElementById('entryNote').hidden), name: (document.getElementById('room')||{}).value||''})"
-            var asleepSince = 0
+            var asleepSince = 0, idleSince = 0
             for i in 0..<80 {   // 最大 40 秒
                 try? await Task.sleep(nanoseconds: 500_000_000)
                 if room.joined { done?(.joined); return }
@@ -92,6 +92,9 @@ final class Engine: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelega
                 if t.contains("いま開いています") && !name.isEmpty { cmd(["type": "entryJoin"]); for _ in 0..<40 { try? await Task.sleep(nanoseconds: 500_000_000); if room.joined { done?(.joined); return } }; done?(.timeout); return }
                 if t.contains("同じ名前の部屋") { done?(.choose); return }
                 if t.contains("😴") { asleepSince += 1; if asleepSince > 2 { done?(.asleep); return } } else { asleepSince = 0 }
+                // ページが入口の案内を出さない（部屋のIDとして読み取れない）リンクは、待たずに知らせる
+                let entryShown = (o["n"] as? Bool) ?? false
+                if !entryShown && t.isEmpty && name.isEmpty { idleSince += 1; if idleSince > 10 { done?(.invalid); return } } else { idleSince = 0 }
                 _ = i
             }
             done?(.timeout)

@@ -32,6 +32,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             d.extra = { [weak self] in "mics=\(self?.model.mics ?? [])" }
             d.actions = { [weak self] name in
                 guard let m = self?.model else { return }
+                if name.hasPrefix("raw:") { let u = String(name.dropFirst(4)); print("raw link test:", u); m.openRoomLink(u); return }
+                if name.hasPrefix("link:") { let q = String(name.dropFirst(5)); if let r = m.engine.lobby.rooms.first(where: { $0.name.contains(q) }) { print("link test:", r.name, r.id); m.openRoomLink("https://potalk.app/#room=\(r.id)") } else { print("link test: no room", q) }; return }
                 switch name {
                 case "snapTest":
                     if let w = m.roomWin, let s = w.screen?.visibleFrame {

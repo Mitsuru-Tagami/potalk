@@ -45,9 +45,11 @@ enum PagePatcher {
         // 名刺と「無視」の確認は、ネイティブ側に出すので、ページ内ではモーダルにしない
         Patch(find: "try { $('cardDlg').showModal() } catch {}", replace: { _ in "try { $('cardDlg').show() } catch {}" }),
         Patch(find: "try { $('ignoreDlg').showModal() } catch { doIgnore(id) }", replace: { _ in "try { $('ignoreDlg').show() } catch { doIgnore(id) }" }),
-        // 起動のたびにキーチェーンの確認が出ないよう、名刺の鍵は「本人確認の証拠がある人」だけ起動時に読む（それ以外は必要になったときに読む）
-        Patch(find: "cardKeyLoad(false).catch(() => {})\nconst CARD_NOSTR_KIND", replace: { _ in
-            "try { const _pc = loadCard(); if (_pc.proofs && Object.keys(_pc.proofs).length) cardKeyLoad(false).catch(() => {}) } catch {}\nconst CARD_NOSTR_KIND" }),
+        // 起動のたびにキーチェーンの確認が出ないよう、名刺の鍵は起動時には読まない。
+        // 相手が自分の名刺を見るとき（名刺を渡す直前）に、はじめて読む（本人確認の✅を、相手に見せるため）
+        Patch(find: "cardKeyLoad(false).catch(() => {})\nconst CARD_NOSTR_KIND", replace: { _ in "const CARD_NOSTR_KIND" }),
+        Patch(find: "      sendTo(call.cardAction, myCardPayload(), peerId)\n    } else if (data.k === 'res') {", replace: { _ in
+            "      const _pc = loadCard()\n      if (_pc.proofs && Object.keys(_pc.proofs).length) cardKeyLoad(false).catch(() => {}).then(() => sendTo(call.cardAction, myCardPayload(), peerId))\n      else sendTo(call.cardAction, myCardPayload(), peerId)\n    } else if (data.k === 'res') {" }),
         Patch(find: "try { $('cropDlg').showModal() } catch { finish(null) }", replace: { _ in "try { $('cropDlg').show() } catch { finish(null) }" }),
         Patch(find: "try { $('cardEditDlg').showModal() } catch {}", replace: { _ in "try { $('cardEditDlg').show() } catch {}" }),
         Patch(find: "try { $('cardAuthDlg').showModal() } catch {}", replace: { _ in "try { $('cardAuthDlg').show() } catch {}" }),
