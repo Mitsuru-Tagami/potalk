@@ -1,0 +1,43 @@
+name: Build Windows (Native)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'potalk-win/**'
+      - '.github/workflows/build-windows-native.yml'
+    tags:
+      - 'win-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish (self-contained, single file)
+        run: >
+          dotnet publish potalk-win/Potalker.csproj -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
+          -o out
+      - name: Zip
+        shell: pwsh
+        run: Compress-Archive -Path out/Potalker.exe -DestinationPath Potalker-win-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Potalker-win-x64
+          path: |
+            out/Potalker.exe
+            Potalker-win-x64.zip
+          if-no-files-found: error
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/win-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Potalker-win-x64.zip

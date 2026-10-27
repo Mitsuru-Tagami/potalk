@@ -31,12 +31,31 @@ cd potalk-swift
 - 署名用の証明書がある場合は、`CODESIGN_ID="証明書の名前" ./make_app.sh release` のように指定できます。署名が変わらなければ、キーチェーンの「常に許可」が、ビルドし直しても効き続けます（既定は簡易署名で、ビルドのたびに許可の確認が出ることがあります）。
 - ページへの小さな差し込み（過去ログ共有、リアクションの効果など）は `Sources/PotalkMac/PagePatcher.swift` にあります。差し込み位置が見つからないときは、元のページをそのまま使います。
 
-## Windows 版（試験中）
+## Windows 版
 
-Electron 版（`potalk-mac/`）を、Windows 向けにもビルドできるようにしました。GitHub Actions（`.github/workflows/build-windows.yml`）が、インストーラー（.exe）と zip を作ります。
+[Releases](https://github.com/riryo3/potalk/releases) から `Potalker-win-x64.zip` をダウンロードして展開し、`Potalker.exe` を実行してください（Windows 10 / 11、64bit。.NET の別途インストールは不要です）。
 
-- **まだ、Windows の実機での動作確認は、できていません。** 起動、入室、マイクの動作は、ご自身で確かめてから使ってください。
-- 署名していないため、SmartScreen の警告が出ます（「詳細情報」→「実行」）。
+- 署名していないため、SmartScreen の警告が出ることがあります（「詳細情報」→「実行」）。
+- 通話の描画に Microsoft Edge WebView2 ランタイムを使います（Windows 11 には最初から入っています。入っていない場合は起動時にエラーが出ます）。
+- 初回の通話で、マイクの許可を求められることがあります。
+- 設定とウィンドウの位置は `%APPDATA%\Potalker\` に保存されます。
+- 未対応: Swift 版のような、ウィンドウどうしの画面端への吸着。
+- 本人確認（X・GitHub・Nostr）は、まだ実機で試していません。
+
+### Windows 版のビルド
+
+```bash
+cd potalk-win
+dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o out
+```
+
+- .NET 8 SDK が必要です。GitHub Actions（`.github/workflows/build-windows-native.yml`）でも作れます。`win-v*` のタグを付けて push すると、Releases に zip が載ります。
+- ページへの小さな差し込みは `PagePatcher.cs` にあります（Swift 版と同じ内容）。
+
+## Electron 版（Windows・試作）
+
+Electron 版（`potalk-mac/`）も、Windows 向けにビルドできます。GitHub Actions（`.github/workflows/build-windows.yml`）が、インストーラー（.exe）と zip を作ります。新しい Windows 版（`potalk-win/`）のほうが小さく軽いので、こちらは試作として残しています。
+
 - ローカルで作る場合: `cd potalk-mac && npm ci && npm run dist:win`
 
 ## Electron 版
