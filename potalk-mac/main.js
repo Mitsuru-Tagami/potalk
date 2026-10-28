@@ -12,6 +12,7 @@ const ORIGIN = new URL(HOME).origin;
 const RAIL_WIDTH = 76;
 let uiMode = 'split', railFollow = true, railMode = 'fixed', compactOn = false;
 let savedBounds = {};
+let savedHeights = {}; // 統合モード用：未入室時／入室時のウィンドウの高さ（状態別に記憶）
 let compactApplier = null; // createWindow が登録する、コンパクト表示の反映先
 const modeFile = () => path.join(app.getPath('userData'), 'ui-mode.json');
 function readUiFile() { try { return JSON.parse(fs.readFileSync(modeFile(), 'utf8')) || {}; } catch { return {}; } }
@@ -23,6 +24,7 @@ function loadUiSettings() {
   railMode = m.railMode === 'drawer' ? 'drawer' : 'fixed';
   compactOn = m.compact === true;
   savedBounds = (m.bounds && typeof m.bounds === 'object') ? m.bounds : {};
+  savedHeights = (m.heights && typeof m.heights === 'object') ? m.heights : {};
 }
 function validSavedBounds(b) {
   if (!b || ![b.x, b.y, b.width, b.height].every(n => Number.isFinite(n))) return null;
@@ -120,6 +122,8 @@ async function createWindow() {
     });
   }
   // ウィンドウのサイズと位置をモード別に覚えて、次回そのまま復元する
+  // 統合モードでは高さを「未入室／入室」で別々に覚える（入室で縦に伸びる挙動の記憶先）
+  let inRoomNow = false;
   let boundsTimer = null;
   const saveBounds = () => {
     if (win.isDestroyed() || win.isMinimized()) return;
@@ -127,11 +131,44 @@ async function createWindow() {
     boundsTimer = setTimeout(() => {
       if (win.isDestroyed() || win.isMinimized()) return;
       savedBounds = { ...savedBounds, [uiMode]: win.getBounds() };
-      writeUiFile({ bounds: savedBounds });
+      if (unified) {
+        savedHeights = { ...savedHeights, [inRoomNow ? 'room' : 'lobby']: win.getBounds().height };
+        writeUiFile({ bounds: savedBounds, heights: savedHeights });
+      } else writeUiFile({ bounds: savedBounds });
     }, 400);
   };
   win.on('resize', saveBounds);
   win.on('move', saveBounds);
+  // 統合モードは未入室の状態で起動するので、まず未入室用のコンパクトな高さに合わせる。
+  // 入室したら animateHeight で入室用の高さへ伸ばし、退出したら戻す（リョータさん提案）
+  const clampHeight = h => {
+    const wa = screen.getDisplayMatching(win.getBounds()).workArea;
+    return Math.max(460, Math.min(Math.round(h) || 540, wa.height));
+  };
+  const lobbyHeight = () => clampHeight(savedHeights.lobby || 540);
+  const roomHeight = () => Math.max(600, clampHeight(savedHeights.room || 800));
+  let heightAnim = null;
+  const animateHeight = target => {
+    if (!unified || win.isDestroyed()) return;
+    const b = win.getBounds(), wa = screen.getDisplayMatching(b).workArea;
+    target = clampHeight(target);
+    let y = b.y;
+    if (y + target > wa.y + wa.height) y = Math.max(wa.y, wa.y + wa.height - target);
+    if (Math.abs(b.height - target) < 4 && y === b.y) return;
+    if (heightAnim) clearInterval(heightAnim);
+    const t0 = Date.now(), dur = 260, h0 = b.height, y0 = b.y;
+    heightAnim = setInterval(() => {
+      if (win.isDestroyed()) { clearInterval(heightAnim); heightAnim = null; return; }
+      const p = Math.min(1, (Date.now() - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      win.setBounds({ x: b.x, y: Math.round(y0 + (y - y0) * e), width: b.width, height: Math.round(h0 + (target - h0) * e) });
+      if (p >= 1) { clearInterval(heightAnim); heightAnim = null; }
+    }, 16);
+  };
+  if (unified) {
+    win.setMinimumSize(400, 460);
+    const b = win.getBounds(), t = lobbyHeight();
+    if (b.height !== t) { const wa = screen.getDisplayMatching(b).workArea; let y = b.y; if (y + t > wa.y + wa.height) y = Math.max(wa.y, wa.y + wa.height - t); win.setBounds({ x: b.x, y, width: b.width, height: t }); }
+  }
   const pageWC = () => (pageView ? pageView.webContents : win.webContents);
 
   let forceRoom = false, askingRoom = false, unreadChat = 0;
@@ -470,6 +507,13 @@ async function createWindow() {
     const hands = s && s.joined ? handsOf(s) : 0;
     if (hands > lastHands) ding();
     lastHands = hands;
+    // 統合モード：入室したら縦に伸ばし、退出したらコンパクトな高さに戻す
+    const nowInRoom = !!(s && s.joined);
+    if (unified && nowInRoom !== inRoomNow) {
+      inRoomNow = nowInRoom;
+      win.setMinimumSize(400, nowInRoom ? 600 : 460);
+      animateHeight(nowInRoom ? roomHeight() : lobbyHeight());
+    }
     lastSnap = s; roomWin && roomWin.wc.send('state', s); rsetWin && rsetWin.wc.send('state', s); mailWin && mailWin.wc.send('state', s); letterWin && letterWin.webContents.send('state', s); syncLetter(s); sendShellState(); });
   ipcMain.on('potalk:room-eq', (e, s) => { if (mine(e) && roomWin && typeof s === 'string') roomWin.wc.send('eq', s.slice(0, 80)); });
   ipcMain.on('potalk:room-react', (e, r) => { if (mine(e) && roomWin && r && typeof r.e === 'string') roomWin.wc.send('react', { u: String(r.u), e: r.e.slice(0, 8), n: String(r.n || '').slice(0, 40) }); });
