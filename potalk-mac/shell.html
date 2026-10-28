@@ -17,7 +17,7 @@ button:disabled:hover{background:transparent}
 .pm-mic{position:relative;display:block}
 .pm-mic button{pointer-events:none}
 .pm-mic select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
-#mode .lb,#helpB .lb,#railB .lb,#drawerB .lb{font-size:10px;color:var(--sub,#8fa0c4)}
+#mode .lb,#helpB .lb,#railB .lb,#drawerB .lb,#compactB .lb{font-size:10px;color:var(--sub,#8fa0c4)}
 </style></head><body>
 <nav id="rail">
   <button id="avatar" title="名前・アバター・見た目などの設定"><span class="ic" id="avEmoji">🧑</span><span class="lb" id="avName">設定</span></button>
@@ -32,6 +32,7 @@ button:disabled:hover{background:transparent}
   <button id="helpB"><span class="ic">？</span><span class="lb">これは<br>なに？</span></button>
   <button id="railB" title="左タブの色をページのテーマに合わせる／ダーク固定を切り替え"><span class="ic">🌗</span><span class="lb" id="railLb">テーマ追随</span></button>
   <button id="drawerB" title="左タブを、左端にカーソルを寄せたときだけ出るドロワーにする／固定表示に戻す"><span class="ic">📌</span><span class="lb" id="drawerLb">ドロワー化</span></button>
+  <button id="compactB" title="ロビーの部屋一覧を詰めて表示する"><span class="ic">🗜️</span><span class="lb">コンパクト</span></button>
   <button id="mode"><span class="ic">🪟</span><span class="lb">バラバラに<br>切り替え</span></button>
   <button id="quitB"><span class="ic">⏻</span><span class="lb">終了</span></button>
 </nav>
@@ -55,6 +56,7 @@ const applyTheme=()=>{
 };
 document.getElementById('railB').onclick=()=>shellPm.railTheme();
 document.getElementById('drawerB').onclick=()=>shellPm.railMode();
+document.getElementById('compactB').onclick=()=>shellPm.compact();
 shellPm.onTheme(t=>{lastTheme=t;applyTheme()});
 const micSel=document.getElementById('micSel');
 micSel.onchange=()=>{shellPm.micSelect(micSel.value);shellPm.selectClose()};
@@ -80,6 +82,7 @@ shellPm.onState(s=>{
   const drawer=s.railMode==='drawer';
   document.getElementById('drawerLb').textContent=drawer?'固定表示':'ドロワー化';
   document.getElementById('drawerB').classList.toggle('on',drawer);
+  document.getElementById('compactB').classList.toggle('on',!!s.compact);
   applyTheme();
   tabs.forEach(t=>el[t].classList.toggle('on',s.tab===t));
   document.getElementById('avatar').classList.toggle('on',s.tab==='settings');

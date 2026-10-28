@@ -10,7 +10,9 @@ const ORIGIN = new URL(HOME).origin;
 // ウィンドウモード：unified=左の縦タブで右ペインを切り替える統合ウィンドウ、
 // split=本体＋個別の小窓（従来の形）。切り替えはメニューから選び、再起動で適用する。
 const RAIL_WIDTH = 76;
-let uiMode = 'split', railFollow = true, railMode = 'fixed';
+let uiMode = 'split', railFollow = true, railMode = 'fixed', compactOn = false;
+let savedBounds = {};
+let compactApplier = null; // createWindow が登録する、コンパクト表示の反映先
 const modeFile = () => path.join(app.getPath('userData'), 'ui-mode.json');
 function readUiFile() { try { return JSON.parse(fs.readFileSync(modeFile(), 'utf8')) || {}; } catch { return {}; } }
 function writeUiFile(patch) { try { fs.writeFileSync(modeFile(), JSON.stringify({ ...readUiFile(), ...patch })); } catch {} }
@@ -19,6 +21,21 @@ function loadUiSettings() {
   uiMode = m.mode === 'unified' ? 'unified' : 'split';
   railFollow = m.rail !== 'dark';
   railMode = m.railMode === 'drawer' ? 'drawer' : 'fixed';
+  compactOn = m.compact === true;
+  savedBounds = (m.bounds && typeof m.bounds === 'object') ? m.bounds : {};
+}
+function validSavedBounds(b) {
+  if (!b || ![b.x, b.y, b.width, b.height].every(n => Number.isFinite(n))) return null;
+  if (b.width < 320 || b.height < 300 || b.width > 4000 || b.height > 4000) return null;
+  const cx = b.x + b.width / 2, cy = b.y + b.height / 2;
+  const hit = screen.getAllDisplays().some(d => { const a = d.workArea; return cx >= a.x && cx < a.x + a.width && cy >= a.y && cy < a.y + a.height; });
+  return hit ? { x: b.x, y: b.y, width: b.width, height: b.height } : null;
+}
+function setCompact(on) {
+  compactOn = !!on;
+  writeUiFile({ compact: compactOn });
+  if (compactApplier) compactApplier();
+  if (uiMode !== 'unified') buildMenu(); // メニューのチェック状態を合わせる（統合モードではメニューなし）
 }
 function requestModeChange(mode) {
   if (mode === uiMode) return;
@@ -42,6 +59,7 @@ function buildMenu() {
       label: '表示',
       submenu: [
         modeItem('unified'), modeItem('split'), { type: 'separator' },
+        { label: 'コンパクト表示', type: 'checkbox', checked: compactOn, click: mi => setCompact(mi.checked) }, { type: 'separator' },
         { role: 'reload' }, { role: 'toggleDevTools' }, { type: 'separator' },
         { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' },
       ],
@@ -62,13 +80,14 @@ async function createWindow() {
     // 起動サイズと位置は画面の作業領域（デスクトップのパネル等を除いた範囲）に収める。
     // center() はディスプレイ全体基準で、パネルの分だけ下にはみ出すことがあるため、作業領域で明示する
     const wa = screen.getPrimaryDisplay().workArea;
-    const uw = Math.min(480, wa.width);
-    let uh = Math.min(880, wa.height);
+    const uw = Math.min(440, wa.width);
+    let uh = Math.min(720, wa.height);
     // Linux の一部環境では作業領域にパネルの高さが差し引かれておらず、
     // 画面いっぱいの高さにすると下端がパネルに潜ってしまうため、余白を確保する
     if (process.platform === 'linux' && uh >= wa.height - 4) uh = Math.max(600, wa.height - 48);
     win = new BrowserWindow({
-      width: uw, height: uh, x: Math.round(wa.x + (wa.width - uw) / 2), y: wa.y, minWidth: 400, minHeight: 600,
+      ...(validSavedBounds(savedBounds.unified) || { width: uw, height: uh, x: Math.round(wa.x + (wa.width - uw) / 2), y: wa.y }),
+      minWidth: 400, minHeight: 600,
       backgroundColor: '#0d1526',
       title: 'Potalker（ぽっと通話 非公式クライアント）',
       webPreferences: { contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'shell-preload.js') },
@@ -88,12 +107,26 @@ async function createWindow() {
     win.loadFile(path.join(__dirname, 'base.html'));
   } else {
     win = new BrowserWindow({
-      width: 520, height: 820, minWidth: 320, minHeight: 300,
+      ...(validSavedBounds(savedBounds.split) || { width: 480, height: 740 }),
+      minWidth: 320, minHeight: 300,
       backgroundColor: '#0d1526',
       title: 'Potalker（ぽっと通話 非公式クライアント）',
       webPreferences: { contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'preload.js'), backgroundThrottling: false },
     });
   }
+  // ウィンドウのサイズと位置をモード別に覚えて、次回そのまま復元する
+  let boundsTimer = null;
+  const saveBounds = () => {
+    if (win.isDestroyed() || win.isMinimized()) return;
+    clearTimeout(boundsTimer);
+    boundsTimer = setTimeout(() => {
+      if (win.isDestroyed() || win.isMinimized()) return;
+      savedBounds = { ...savedBounds, [uiMode]: win.getBounds() };
+      writeUiFile({ bounds: savedBounds });
+    }, 400);
+  };
+  win.on('resize', saveBounds);
+  win.on('move', saveBounds);
   const pageWC = () => (pageView ? pageView.webContents : win.webContents);
 
   let forceRoom = false, askingRoom = false, unreadChat = 0;
@@ -158,8 +191,13 @@ async function createWindow() {
   const sendShellState = () => {
     if (!unified || win.isDestroyed()) return;
     const wc = railWC();
-    if (wc) wc.send('shell:state', { tab: currentTab, unread: unreadChat, inRoom: !!roomWin, canCreate: !(lastSnap && lastSnap.joined), railFollow, railMode });
+    if (wc) wc.send('shell:state', { tab: currentTab, unread: unreadChat, inRoom: !!roomWin, canCreate: !(lastSnap && lastSnap.joined), railFollow, railMode, compact: compactOn });
     applyRailLayout();
+  };
+  compactApplier = () => {
+    const pw = pageWC();
+    if (!pw.isDestroyed()) pw.send('potalk:compact', compactOn);
+    sendShellState();
   };
   // 現在のタブに合わせて、右ペインにビューを並べる。
   // 部屋タブでは、部屋（上）＋ひとこと（下）の2段にする。
@@ -493,6 +531,9 @@ async function createWindow() {
   // マイク選択を開いている間はドロワーを引っ込めない
   ipcMain.on('shell:select-open', e => { if (fromRail(e)) selectOpen = true; });
   ipcMain.on('shell:select-close', e => { if (fromRail(e)) { selectOpen = false; drawerGraceUntil = Date.now() + 600; } });
+  // コンパクト表示の切り替え（左タブから）。ページ側からの状態問い合わせにも答える
+  ipcMain.on('shell:compact', e => { if (fromRail(e)) setCompact(!compactOn); });
+  ipcMain.on('potalk:compact-get', e => { if (mine(e)) e.sender.send('potalk:compact', compactOn); });
   // 初期設定（名前・アバター・見た目）。同じページを設定だけの表示で開く。保存先(localStorage)は本体と共通
   // 統合モードでは別ウィンドウにせず、右ペインに設定ビューを出す
   const openSettingsPane = () => {

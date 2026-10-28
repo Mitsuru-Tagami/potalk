@@ -97,6 +97,14 @@ const UNIFIED_CSS = `
 #pmBar #pmSet,#pmBar .pm-mic,#pmBar #pmHelp,#pmBar #pmNew{display:none!important}
 `;
 
+// コンパクト表示：ロビーの部屋カードの余白と文字を詰めて、一覧に多く入るようにする
+const COMPACT_CSS = `
+#lobbyList{gap:6px!important}
+#lobbyList>button{padding:7px 10px!important;border-radius:12px!important;line-height:1.3!important;gap:3px!important}
+#lobbyList>button span{font-size:11px!important}
+#lobbyList>button .room-name{font-size:14px!important}
+`;
+
 const HELP_CSS = `
 body>*:not(#helpDialog):not(style):not(script){display:none!important}
 #helpDialog[open]{position:fixed!important;inset:0!important;width:100%!important;max-width:none!important;height:100%!important;max-height:none!important;
@@ -134,6 +142,9 @@ window.addEventListener('DOMContentLoaded', () => {
   const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
   const st2 = document.createElement('style'); st2.textContent = MAIN_CSS; document.head.appendChild(st2);
   if (UNIFIED) { const stu = document.createElement('style'); stu.textContent = UNIFIED_CSS; document.head.appendChild(stu); }
+  const stc = document.createElement('style'); stc.id = 'pmCompact'; document.head.appendChild(stc);
+  ipcRenderer.on('potalk:compact', (_e, on) => { stc.textContent = on ? COMPACT_CSS : ''; });
+  ipcRenderer.send('potalk:compact-get');
   const bar = document.createElement('div'); bar.id = 'pmBar';
   bar.innerHTML = `<button id="pmSet" title="名前・アバター・見た目などの初期設定">🧑 設定</button>
     <span class="pm-sp"></span>

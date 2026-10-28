@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('shellPm', {
   quit: () => ipcRenderer.send('shell:quit'),
   railTheme: () => ipcRenderer.send('shell:rail-theme'),
   railMode: () => ipcRenderer.send('shell:rail-mode'),
+  compact: () => ipcRenderer.send('shell:compact'),
   selectOpen: () => ipcRenderer.send('shell:select-open'),
   selectClose: () => ipcRenderer.send('shell:select-close'),
   onTheme: f => ipcRenderer.on('shell:theme', (_e, t) => f(t)),
