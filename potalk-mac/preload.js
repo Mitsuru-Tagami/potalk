@@ -16,7 +16,7 @@ webFrame.executeJavaScript(`(() => {
 
 const CSS = `
 #pmBar{position:fixed;top:0;left:0;right:0;min-height:44px;z-index:99999;box-sizing:border-box;display:flex;flex-wrap:wrap;gap:0 8px;align-items:center;
-  padding:4px 12px;background:rgba(13,21,38,.96);border-bottom:1px solid rgba(255,255,255,.14);font:13px -apple-system,sans-serif;color:#fff;
+  padding:4px 12px;background:var(--panel,#0d1526);border-bottom:1px solid var(--border,rgba(255,255,255,.14));font:13px -apple-system,sans-serif;color:var(--text,#fff);
   -webkit-app-region:drag}
 #pmBar>*{-webkit-app-region:no-drag;flex:none!important;width:auto!important;margin:2px 0!important;white-space:nowrap}
 #pmBar .pm-br{margin:0!important}
@@ -25,33 +25,33 @@ const CSS = `
 #pmBar select{width:200px!important;min-width:0!important;margin:0!important}
 #pmBar label{font-size:13px!important;margin:0!important}
 #pmBar .pm-brand{font-weight:700;margin-right:4px;-webkit-app-region:drag}
-#pmBar label{display:flex;align-items:center;gap:6px;color:rgba(255,255,255,.7)}
-#pmBar select,#pmBar button{font:inherit;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.16);border-radius:8px;padding:3px 10px;cursor:pointer}
+#pmBar label{display:flex;align-items:center;gap:6px;color:var(--sub,rgba(255,255,255,.7))}
+#pmBar select,#pmBar button{font:inherit;color:var(--text,#fff);background:var(--chip,rgba(255,255,255,.12));border:1px solid var(--border,rgba(255,255,255,.16));border-radius:8px;padding:3px 10px;cursor:pointer}
 #pmBar select{max-width:260px}
-#pmBar option{color:#000}
+#pmBar option{color:var(--text,#000);background:var(--panel,#fff)}
 #pmBar .pm-sp{flex:1;-webkit-app-region:drag;align-self:stretch}
-#pmBar button:hover:not(:disabled){background:rgba(255,255,255,.22)}
+#pmBar button:hover:not(:disabled){background:var(--chip-hover,rgba(255,255,255,.22))}
 #pmBar button.on{background:#3b82f6;border-color:#3b82f6}
 #pmBar button:disabled{opacity:.35;cursor:not-allowed}
 #pmBar #pmSet{flex:0 1 auto!important;min-width:0;max-width:calc(100% - 120px);overflow:hidden;text-overflow:ellipsis}
 #pmBar .pm-br{flex-basis:100%!important;height:0}
 #pmBar .pm-mic{position:relative;display:inline-block}
 #pmBar .pm-mic select{position:absolute!important;inset:0;width:100%!important;max-width:none!important;height:100%;opacity:0;cursor:pointer}
-#pmBar #lobbyRefresh{font:inherit!important;color:#fff!important;background:rgba(255,255,255,.12)!important;border:1px solid rgba(255,255,255,.16)!important;border-radius:8px!important;padding:3px 10px!important;cursor:pointer}
+#pmBar #lobbyRefresh{font:inherit!important;color:var(--text,#fff)!important;background:var(--chip,rgba(255,255,255,.12))!important;border:1px solid var(--border,rgba(255,255,255,.16))!important;border-radius:8px!important;padding:3px 10px!important;cursor:pointer}
 body{padding-top:var(--pm-top,52px)!important;padding-bottom:var(--pm-bot,50px)!important}
 #pmFoot{position:fixed;left:0;right:0;bottom:0;min-height:40px;z-index:99999;box-sizing:border-box;display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:6px 14px;
-  background:rgba(13,21,38,.96);border-top:1px solid rgba(255,255,255,.14);font:13px -apple-system,sans-serif;color:#fff;}
+  background:var(--panel,#0d1526);border-top:1px solid var(--border,rgba(255,255,255,.14));font:13px -apple-system,sans-serif;color:var(--text,#fff);}
 #pmFoot>*{flex:none!important;width:auto!important;margin:0!important;white-space:nowrap}
 #pmFoot .snd-opt{display:none!important;align-items:center;gap:6px;cursor:pointer;padding:4px 11px;border-radius:8px;
-  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.16);color:#fff!important;font-size:13px!important}
-#pmFoot #pmNotify{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:8px;font:inherit;font-size:13px;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.16);cursor:pointer}
-#pmFoot #pmNotify:hover{background:rgba(255,255,255,.22)}#pmFoot #pmNotify.on{background:#3b82f6;border-color:#3b82f6}
-#pmFoot .snd-opt:hover{background:rgba(255,255,255,.22)}
+  background:var(--chip,rgba(255,255,255,.12));border:1px solid var(--border,rgba(255,255,255,.16));color:var(--text,#fff)!important;font-size:13px!important}
+#pmFoot #pmNotify{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:8px;font:inherit;font-size:13px;color:var(--text,#fff);background:var(--chip,rgba(255,255,255,.12));border:1px solid var(--border,rgba(255,255,255,.16));cursor:pointer}
+#pmFoot #pmNotify:hover{background:var(--chip-hover,rgba(255,255,255,.22))}#pmFoot #pmNotify.on{background:#3b82f6;border-color:#3b82f6}
+#pmFoot .snd-opt:hover{background:var(--chip-hover,rgba(255,255,255,.22))}
 #pmFoot .snd-opt:has(input:checked){background:#3b82f6;border-color:#3b82f6}
 #pmFoot .snd-opt[hidden]{display:none!important}
 #pmFoot .snd-opt input{position:absolute;opacity:0;pointer-events:none}
 #pmFoot .ntf-note{display:none}
-#pmFoot .lobby-viewers{margin-left:auto!important;color:rgba(255,255,255,.75)!important;font-size:13px!important;padding:0!important}
+#pmFoot .lobby-viewers{margin-left:auto!important;color:var(--sub,rgba(255,255,255,.75))!important;font-size:13px!important;padding:0!important}
 `;
 
 const ROLE = (process.argv.find(a => a.startsWith('--pm-role=')) || '').slice(10) || 'main';
@@ -74,9 +74,9 @@ body{justify-content:flex-start!important}
 /* ロビー下の説明文は出さない */
 .lobby-note{display:none!important}
 .lobby-head h2{display:none!important}
-#pmBar #pmSearch{flex:1 1 0!important;width:auto!important;min-width:0;font:inherit;font-size:13px;padding:3px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.12);color:#fff;outline:none;margin:2px 0!important}
-#pmBar #pmSearch::placeholder{color:rgba(255,255,255,.55)}
-#pmBar #pmSearch:focus{border-color:#00e5cc}
+#pmBar #pmSearch{flex:1 1 0!important;width:auto!important;min-width:0;font:inherit;font-size:13px;padding:3px 10px;border-radius:8px;border:1px solid var(--border,rgba(255,255,255,.16));background:var(--chip,rgba(255,255,255,.12));color:var(--text,#fff);outline:none;margin:2px 0!important}
+#pmBar #pmSearch::placeholder{color:var(--placeholder,rgba(255,255,255,.55))}
+#pmBar #pmSearch:focus{border-color:var(--accent,#00e5cc)}
 #pmNoHit{display:none;padding:14px 4px;font-size:13px;color:var(--sub);line-height:1.7}
 #pmNoHit button{margin-top:8px;font:inherit;font-size:13px;padding:6px 12px;border-radius:999px;border:1px solid var(--border);background:var(--chip);color:var(--text);cursor:pointer}
 #createBox:not(:has(#entryNote:not([hidden]))){display:none!important}

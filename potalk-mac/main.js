@@ -60,7 +60,11 @@ async function createWindow() {
     // 起動サイズと位置は画面の作業領域（デスクトップのパネル等を除いた範囲）に収める。
     // center() はディスプレイ全体基準で、パネルの分だけ下にはみ出すことがあるため、作業領域で明示する
     const wa = screen.getPrimaryDisplay().workArea;
-    const uw = Math.min(480, wa.width), uh = Math.min(880, wa.height);
+    const uw = Math.min(480, wa.width);
+    let uh = Math.min(880, wa.height);
+    // Linux の一部環境では作業領域にパネルの高さが差し引かれておらず、
+    // 画面いっぱいの高さにすると下端がパネルに潜ってしまうため、余白を確保する
+    if (process.platform === 'linux' && uh >= wa.height - 4) uh = Math.max(600, wa.height - 48);
     win = new BrowserWindow({
       width: uw, height: uh, x: Math.round(wa.x + (wa.width - uw) / 2), y: wa.y, minWidth: 400, minHeight: 600,
       backgroundColor: '#0d1526',
