@@ -9,7 +9,7 @@ const ORIGIN = new URL(HOME).origin;
 
 // ウィンドウモード：unified=左の縦タブで右ペインを切り替える統合ウィンドウ、
 // split=本体＋個別の小窓（従来の形）。切り替えはメニューから選び、再起動で適用する。
-const RAIL_WIDTH = 76;
+const RAIL_WIDTH = 56; // アイコンのみのレール（名称は title で出す）
 let uiMode = 'split', railFollow = true, railMode = 'fixed', compactOn = false;
 let savedBounds = {};
 let savedHeights = {}; // 統合モード用：未入室時／入室時のウィンドウの高さ（状態別に記憶）
