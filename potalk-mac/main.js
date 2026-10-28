@@ -135,6 +135,15 @@ async function createWindow() {
   const pageWC = () => (pageView ? pageView.webContents : win.webContents);
 
   let forceRoom = false, askingRoom = false, unreadChat = 0;
+  // 本家のテーマ（ページ側から中継される CSS 変数）。衛星パネル類へも配る
+  let lastTheme = null;
+  const sendThemeToPanels = () => {
+    const t = railFollow ? lastTheme : null;
+    for (const h of [roomWin, chatWin, mailWin, rsetWin, letterWin, createWin]) {
+      const wc = h ? (h.wc || h.webContents) : null;
+      if (wc && !wc.isDestroyed()) wc.send('theme', t);
+    }
+  };
   let chatWin = null, roomWin = null, rsetWin = null, mailWin = null, letterWin = null, letterKey = '', letterDismissed = '', lastSnap = null, lines = [];
 
   // パネル（部屋・ひとこと・おたより・部屋設定）の受け皿。
@@ -314,7 +323,7 @@ async function createWindow() {
   // 統合モード用：ひとことビューを作る（選択はしない。部屋タブの下段にも出すため）
   const createChatPanel = () => {
     chatWin = viewHost('chat', path.join(__dirname, 'chat.html'), path.join(__dirname, 'chat-preload.js'));
-    chatWin.wc.on('did-finish-load', () => chatWin && chatWin.wc.send('lines', lines));
+    chatWin.wc.on('did-finish-load', () => { if (chatWin) { chatWin.wc.send('lines', lines); sendThemeToPanels(); } });
     chatWin.onClosed(() => { chatWin = null; if (!win.isDestroyed()) sendState(); sendShellState(); });
     sendState();
   };
@@ -340,7 +349,7 @@ async function createWindow() {
       chatWin = windowHost(cw);
       chatWin.loadFile(path.join(__dirname, 'chat.html'));
     }
-    chatWin.wc.on('did-finish-load', () => chatWin && chatWin.wc.send('lines', lines));
+    chatWin.wc.on('did-finish-load', () => { if (chatWin) { chatWin.wc.send('lines', lines); sendThemeToPanels(); } });
     chatWin.onClosed(() => { chatWin = null; if (!win.isDestroyed()) sendState(); sendShellState(); });
     sendState();
   };
@@ -383,7 +392,7 @@ async function createWindow() {
     letterWin.setAlwaysOnTop(true, 'floating');
     letterWin.once('ready-to-show', () => letterWin && letterWin.showInactive());
     letterWin.loadFile(path.join(__dirname, 'letter.html'));
-    letterWin.webContents.on('did-finish-load', () => { if (letterWin && lastSnap) letterWin.webContents.send('state', lastSnap); });
+    letterWin.webContents.on('did-finish-load', () => { if (letterWin && lastSnap) letterWin.webContents.send('state', lastSnap); sendThemeToPanels(); });
     letterWin.on('closed', () => { if (letterKey) letterDismissed = letterKey; letterWin = null; });
   };
   const syncLetter = s => {
@@ -429,6 +438,7 @@ async function createWindow() {
       if (!roomWin) return;
       if (lastSnap) roomWin.wc.send('state', lastSnap);
       roomWin.wc.send('pin', unified ? true : roomWin.win.isAlwaysOnTop());
+      sendThemeToPanels();
       sendState();
     });
     roomWin.onClosed(() => { roomWin = null; forceRoom = false; if (letterWin) letterWin.close(); letterDismissed = ''; if (chatWin) chatWin.close(); if (rsetWin) rsetWin.close(); if (mailWin) mailWin.close(); sendShellState(); });
@@ -484,7 +494,7 @@ async function createWindow() {
       rsetWin = windowHost(sw);
       rsetWin.loadFile(path.join(__dirname, 'rset.html'));
     }
-    rsetWin.wc.on('did-finish-load', () => { if (rsetWin && lastSnap) rsetWin.wc.send('state', lastSnap); });
+    rsetWin.wc.on('did-finish-load', () => { if (rsetWin && lastSnap) rsetWin.wc.send('state', lastSnap); sendThemeToPanels(); });
     rsetWin.onClosed(() => { rsetWin = null; sendShellState(); });
     if (unified) selectTab('rset');
     sendShellState();
@@ -509,7 +519,7 @@ async function createWindow() {
       mailWin = windowHost(mw);
       mailWin.loadFile(path.join(__dirname, 'mail.html'));
     }
-    mailWin.wc.on('did-finish-load', () => { if (mailWin && lastSnap) mailWin.wc.send('state', lastSnap); });
+    mailWin.wc.on('did-finish-load', () => { if (mailWin && lastSnap) mailWin.wc.send('state', lastSnap); sendThemeToPanels(); });
     mailWin.onClosed(() => { mailWin = null; sendState(); sendShellState(); });
     if (unified) selectTab('mail');
     sendState();
@@ -560,8 +570,10 @@ async function createWindow() {
   // 本家のテーマ変数を、ページ側から左タブへ中継する
   ipcMain.on('potalk:theme', (e, t) => {
     if (!mine(e) || !t || typeof t !== 'object') return;
+    lastTheme = t;
     const wc = railWC(); if (wc) wc.send('shell:theme', t);
     if (handleView && !handleView.webContents.isDestroyed()) handleView.webContents.send('handle:theme', t);
+    sendThemeToPanels();
   });
   // 左タブのテーマ追随オン／オフ（設定は ui-mode.json に一緒に保存）
   ipcMain.on('shell:rail-theme', e => {
@@ -569,6 +581,7 @@ async function createWindow() {
     railFollow = !railFollow;
     writeUiFile({ rail: railFollow ? 'follow' : 'dark' });
     sendShellState();
+    sendThemeToPanels();
   });
   // 左タブの固定表示／ドロワー切り替え（設定は ui-mode.json に一緒に保存）
   ipcMain.on('shell:rail-mode', e => {
@@ -620,7 +633,7 @@ async function createWindow() {
       webPreferences: { contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'chat-preload.js') },
     });
     createWin.loadFile(path.join(__dirname, 'create.html'));
-    createWin.webContents.on('did-finish-load', () => createWin && createWin.webContents.send('default', String(def || '').slice(0, 30)));
+    createWin.webContents.on('did-finish-load', () => { if (createWin) createWin.webContents.send('default', String(def || '').slice(0, 30)); sendThemeToPanels(); });
     createWin.on('closed', () => { createWin = null; });
   });
   ipcMain.on('potalk:create-submit', (e, v) => {
