@@ -57,12 +57,15 @@ async function createWindow() {
   // 本体のページは split では win 自身、unified では pageView が持つ。
   let win, pageView = null;
   if (unified) {
+    // 起動サイズは画面の作業領域に収める（縦768pxの画面で880pxを指定すると、タイトルバーが画面の外に出てしまうため）
+    const wa = screen.getPrimaryDisplay().workArea;
     win = new BrowserWindow({
-      width: 480, height: 880, minWidth: 400, minHeight: 600,
+      width: Math.min(480, wa.width), height: Math.min(880, wa.height), minWidth: 400, minHeight: 600,
       backgroundColor: '#0d1526',
       title: 'Potalker（ぽっと通話 非公式クライアント）',
       webPreferences: { contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'shell-preload.js') },
     });
+    win.center();
     pageView = new BrowserView({
       webPreferences: { contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'preload.js'), backgroundThrottling: false, additionalArguments: ['--pm-mode=unified'] },
     });
