@@ -10,7 +10,7 @@ const ORIGIN = new URL(HOME).origin;
 // ウィンドウモード：unified=左の縦タブで右ペインを切り替える統合ウィンドウ、
 // split=本体＋個別の小窓（従来の形）。切り替えはメニューから選び、再起動で適用する。
 const RAIL_WIDTH = 76;
-let uiMode = 'split', railFollow = true;
+let uiMode = 'split', railFollow = true, railMode = 'fixed';
 const modeFile = () => path.join(app.getPath('userData'), 'ui-mode.json');
 function readUiFile() { try { return JSON.parse(fs.readFileSync(modeFile(), 'utf8')) || {}; } catch { return {}; } }
 function writeUiFile(patch) { try { fs.writeFileSync(modeFile(), JSON.stringify({ ...readUiFile(), ...patch })); } catch {} }
@@ -18,6 +18,7 @@ function loadUiSettings() {
   const m = readUiFile();
   uiMode = m.mode === 'unified' ? 'unified' : 'split';
   railFollow = m.rail !== 'dark';
+  railMode = m.railMode === 'drawer' ? 'drawer' : 'fixed';
 }
 function requestModeChange(mode) {
   if (mode === uiMode) return;
@@ -56,7 +57,7 @@ async function createWindow() {
   const unified = uiMode === 'unified';
   // win は OS のウィンドウ（split=本体そのもの、unified=タブの器になるシェル）。
   // 本体のページは split では win 自身、unified では pageView が持つ。
-  let win, pageView = null;
+  let win, pageView = null, railView = null, stripView = null;
   if (unified) {
     // 起動サイズと位置は画面の作業領域（デスクトップのパネル等を除いた範囲）に収める。
     // center() はディスプレイ全体基準で、パネルの分だけ下にはみ出すことがあるため、作業領域で明示する
@@ -75,7 +76,16 @@ async function createWindow() {
     pageView = new BrowserView({
       webPreferences: { contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'preload.js'), backgroundThrottling: false, additionalArguments: ['--pm-mode=unified'] },
     });
-    win.loadFile(path.join(__dirname, 'shell.html'));
+    // 左タブは、コンテンツの上に重ねられるよう専用ビューで持つ（ドロワー化のため）。
+    // ウィンドウ自身は土台ページ（base.html）を表示するだけ。
+    railView = new BrowserView({
+      webPreferences: { contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'shell-preload.js') },
+    });
+    railView.webContents.loadFile(path.join(__dirname, 'shell.html'));
+    // ドロワーを閉じている間の未読サイン（左端の細い帯）
+    stripView = new BrowserView({ webPreferences: { contextIsolation: true, sandbox: true } });
+    stripView.webContents.loadFile(path.join(__dirname, 'strip.html'));
+    win.loadFile(path.join(__dirname, 'base.html'));
   } else {
     win = new BrowserWindow({
       width: 520, height: 820, minWidth: 320, minHeight: 300,
@@ -96,16 +106,69 @@ async function createWindow() {
   const CHAT_STRIP = 230; // 部屋タブの下部に出す、ひとこと欄の高さ
   const attachView = v => { if (v && !win.isDestroyed() && !win.getBrowserViews().includes(v)) win.addBrowserView(v); };
   const detachView = v => { if (v && !win.isDestroyed() && win.getBrowserViews().includes(v)) win.removeBrowserView(v); };
+  const railWC = () => (railView && !railView.webContents.isDestroyed() ? railView.webContents : null);
+  // 左タブの出し方：fixed=常時表示、drawer=左端ホバーで重なって出る。
+  // ドロワー時はコンテンツが全幅になり、レールは最前面のビューとして出し入れする。
+  let drawerShown = false, drawerX = -RAIL_WIDTH, drawerTimer = null, selectOpen = false, drawerGraceUntil = 0;
+  const contentX = () => (railMode === 'drawer' ? 0 : RAIL_WIDTH);
+  function applyRailLayout() {
+    if (!unified || win.isDestroyed() || !railView) return;
+    const b = win.getContentBounds();
+    // コンテンツのビューを並べ直したあとでも最前面に来るよう、いったん外して付け直す
+    if (railMode === 'fixed') {
+      detachView(stripView); detachView(railView);
+      attachView(railView); railView.setBounds({ x: 0, y: 0, width: RAIL_WIDTH, height: b.height });
+    } else if (drawerShown) {
+      detachView(stripView); detachView(railView);
+      attachView(railView); railView.setBounds({ x: Math.round(drawerX), y: 0, width: RAIL_WIDTH, height: b.height });
+    } else {
+      detachView(railView);
+      if (unreadChat > 0) { detachView(stripView); attachView(stripView); stripView.setBounds({ x: 0, y: 0, width: 4, height: b.height }); }
+      else detachView(stripView);
+    }
+  }
+  function animateDrawerTo(target) {
+    if (drawerTimer) clearInterval(drawerTimer);
+    drawerTimer = setInterval(() => {
+      const step = 16;
+      drawerX += Math.sign(target - drawerX) * Math.min(step, Math.abs(target - drawerX));
+      if (drawerX === target) {
+        clearInterval(drawerTimer); drawerTimer = null;
+        if (target < 0) drawerShown = false;
+      }
+      applyRailLayout();
+    }, 16);
+  }
+  function setDrawer(shown) {
+    if (railMode !== 'drawer' || shown === drawerShown) return;
+    if (shown) { drawerShown = true; drawerGraceUntil = Date.now() + 500; applyRailLayout(); animateDrawerTo(0); }
+    else animateDrawerTo(-RAIL_WIDTH);
+  }
+  if (unified) {
+    // カーソルがウィンドウ左端に寄ったらドロワーを出し、外れたら引っ込める
+    setInterval(() => {
+      if (win.isDestroyed() || railMode !== 'drawer' || !win.isVisible() || win.isMinimized()) return;
+      const b = win.getContentBounds(), pt = screen.getCursorScreenPoint();
+      const rx = pt.x - b.x, ry = pt.y - b.y;
+      const inside = ry >= 0 && ry <= b.height && rx >= -4 && rx <= b.width;
+      if (!drawerShown) { if (inside && rx <= 6) setDrawer(true); }
+      else if (!selectOpen && Date.now() > drawerGraceUntil && (!inside || rx > RAIL_WIDTH + 28)) setDrawer(false);
+    }, 100);
+  }
   const sendShellState = () => {
-    if (unified && !win.isDestroyed()) win.webContents.send('shell:state', { tab: currentTab, unread: unreadChat, inRoom: !!roomWin, canCreate: !(lastSnap && lastSnap.joined), railFollow });
+    if (!unified || win.isDestroyed()) return;
+    const wc = railWC();
+    if (wc) wc.send('shell:state', { tab: currentTab, unread: unreadChat, inRoom: !!roomWin, canCreate: !(lastSnap && lastSnap.joined), railFollow, railMode });
+    applyRailLayout();
   };
   // 現在のタブに合わせて、右ペインにビューを並べる。
   // 部屋タブでは、部屋（上）＋ひとこと（下）の2段にする。
   function layoutViews() {
     if (!unified || win.isDestroyed()) return;
     const b = win.getContentBounds();
-    const W = Math.max(0, b.width - RAIL_WIDTH), H = b.height;
-    const pane = (y, h) => ({ x: RAIL_WIDTH, y, width: W, height: Math.max(0, h) });
+    const X = contentX();
+    const W = Math.max(0, b.width - X), H = b.height;
+    const pane = (y, h) => ({ x: X, y, width: W, height: Math.max(0, h) });
     for (const v of Object.values(views)) if (v) detachView(v);
     const show = (v, bounds) => { attachView(v); v.setBounds(bounds); };
     const clearUnread = () => { if (unreadChat) { unreadChat = 0; if (roomWin) roomWin.wc.send('unread', 0); } };
@@ -375,19 +438,20 @@ async function createWindow() {
     roomWin.wc.send('pin', roomWin.win.isAlwaysOnTop());
   });
   // 統合モードの左タブからの操作
+  const fromRail = e => unified && railView && e.sender === railView.webContents;
   ipcMain.on('shell:select', (e, tab) => {
-    if (!unified || e.sender !== win.webContents) return;
+    if (!fromRail(e)) return;
     if (tab === 'chat') { openChat(); return; }
     if (tab === 'mail') { if (roomWin) openMail(); return; }
     if (tab === 'rset') { if (roomWin) openRset(); return; }
     selectTab(tab);
   });
-  ipcMain.on('shell:mode', e => { if (unified && e.sender === win.webContents) requestModeChange('split'); });
-  ipcMain.on('shell:quit', e => { if (unified && e.sender === win.webContents) app.quit(); });
+  ipcMain.on('shell:mode', e => { if (fromRail(e)) requestModeChange('split'); });
+  ipcMain.on('shell:quit', e => { if (fromRail(e)) app.quit(); });
   // 統合モードでは、ページ側のバーにあった操作（設定・部屋作り・ヘルプ）を左タブへ移す。
   // 実処理はページ側の既存ボタンをそのまま押すことで流用する。
   ipcMain.on('shell:click', (e, name) => {
-    if (!unified || e.sender !== win.webContents) return;
+    if (!fromRail(e)) return;
     if (name === 'profile') { openSettingsPane(); return; }
     const id = { create: 'pmNew', help: 'pmHelp' }[name];
     if (id) pageWC().send('potalk:ui-click', id);
@@ -395,28 +459,40 @@ async function createWindow() {
   // プロフィール（絵文字・名前）とマイク一覧はページ側が持っているので、左タブへ中継する
   ipcMain.on('potalk:profile-info', (e, p) => {
     if (!mine(e) || !p) return;
-    if (!win.isDestroyed()) win.webContents.send('shell:profile', { emoji: String(p.emoji || '🧑').slice(0, 8), name: String(p.name || '').slice(0, 40) });
+    const wc = railWC(); if (wc) wc.send('shell:profile', { emoji: String(p.emoji || '🧑').slice(0, 8), name: String(p.name || '').slice(0, 40) });
   });
   ipcMain.on('potalk:mic-list', (e, m) => {
     if (!mine(e) || !m || !Array.isArray(m.options)) return;
-    if (!win.isDestroyed()) win.webContents.send('shell:mic-list', m);
+    const wc = railWC(); if (wc) wc.send('shell:mic-list', m);
   });
   ipcMain.on('shell:mic-select', (e, v) => {
-    if (!unified || e.sender !== win.webContents || typeof v !== 'string') return;
+    if (!fromRail(e) || typeof v !== 'string') return;
     pageWC().send('potalk:mic-set', v.slice(0, 200));
   });
   // 本家のテーマ変数を、ページ側から左タブへ中継する
   ipcMain.on('potalk:theme', (e, t) => {
     if (!mine(e) || !t || typeof t !== 'object') return;
-    if (!win.isDestroyed()) win.webContents.send('shell:theme', t);
+    const wc = railWC(); if (wc) wc.send('shell:theme', t);
   });
   // 左タブのテーマ追随オン／オフ（設定は ui-mode.json に一緒に保存）
   ipcMain.on('shell:rail-theme', e => {
-    if (!unified || e.sender !== win.webContents) return;
+    if (!fromRail(e)) return;
     railFollow = !railFollow;
     writeUiFile({ rail: railFollow ? 'follow' : 'dark' });
     sendShellState();
   });
+  // 左タブの固定表示／ドロワー切り替え（設定は ui-mode.json に一緒に保存）
+  ipcMain.on('shell:rail-mode', e => {
+    if (!fromRail(e)) return;
+    railMode = railMode === 'drawer' ? 'fixed' : 'drawer';
+    writeUiFile({ railMode });
+    if (drawerTimer) { clearInterval(drawerTimer); drawerTimer = null; }
+    drawerShown = false; drawerX = -RAIL_WIDTH;
+    layoutViews();
+  });
+  // マイク選択を開いている間はドロワーを引っ込めない
+  ipcMain.on('shell:select-open', e => { if (fromRail(e)) selectOpen = true; });
+  ipcMain.on('shell:select-close', e => { if (fromRail(e)) { selectOpen = false; drawerGraceUntil = Date.now() + 600; } });
   // 初期設定（名前・アバター・見た目）。同じページを設定だけの表示で開く。保存先(localStorage)は本体と共通
   // 統合モードでは別ウィンドウにせず、右ペインに設定ビューを出す
   const openSettingsPane = () => {
