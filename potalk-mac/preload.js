@@ -59,7 +59,7 @@ const ROLE = (process.argv.find(a => a.startsWith('--pm-role=')) || '').slice(10
 const UNIFIED = process.argv.includes('--pm-mode=unified');
 
 const SETTINGS_CSS = `
-.wrap>.lobby,.legal,.banner,.sub,#createBox,#statusCard,#help,#pmBar,#pmFoot{display:none!important}
+.wrap>.lobby,.banner,.sub,#createBox,#statusCard,#help,#pmBar,#pmFoot{display:none!important}
 body{padding-top:12px!important}
 .wrap{display:block!important}.card{max-width:none!important;margin:0 auto}
 `;
@@ -134,6 +134,10 @@ window.addEventListener('DOMContentLoaded', () => {
     if (ROLE === 'main') ipcRenderer.send('potalk:help-open');
   };
   if (hd) { new MutationObserver(moveHelp).observe(hd, { attributes: true, attributeFilter: ['open'] }); moveHelp(); }
+  // アクセス測定の注記（footer.legal）はロビーの下に常時出さず、設定（プロフィール欄）の中へ移す。
+  // ロビーがその分コンパクトになり、注記自体は設定を開けば読める。
+  const legal = document.querySelector('footer.legal'), profileBoxEl = document.getElementById('profileBox');
+  if (legal && profileBoxEl) profileBoxEl.appendChild(legal);
   if (ROLE === 'settings') {
     const st = document.createElement('style'); st.textContent = SETTINGS_CSS; document.head.appendChild(st);
     const pb = document.getElementById('profileBox'); if (pb) pb.open = true;
