@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld('shellPm', {
   click: name => ipcRenderer.send('shell:click', name),
   mode: () => ipcRenderer.send('shell:mode'),
   quit: () => ipcRenderer.send('shell:quit'),
+  railTheme: () => ipcRenderer.send('shell:rail-theme'),
+  onTheme: f => ipcRenderer.on('shell:theme', (_e, t) => f(t)),
   micSelect: v => ipcRenderer.send('shell:mic-select', v),
   onState: f => ipcRenderer.on('shell:state', (_e, s) => f(s)),
   onProfile: f => ipcRenderer.on('shell:profile', (_e, p) => f(p)),

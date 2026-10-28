@@ -10,17 +10,18 @@ const ORIGIN = new URL(HOME).origin;
 // ウィンドウモード：unified=左の縦タブで右ペインを切り替える統合ウィンドウ、
 // split=本体＋個別の小窓（従来の形）。切り替えはメニューから選び、再起動で適用する。
 const RAIL_WIDTH = 76;
-let uiMode = 'split';
+let uiMode = 'split', railFollow = true;
 const modeFile = () => path.join(app.getPath('userData'), 'ui-mode.json');
-function loadUiMode() {
-  try {
-    const m = JSON.parse(fs.readFileSync(modeFile(), 'utf8'));
-    return m && m.mode === 'unified' ? 'unified' : 'split';
-  } catch { return 'split'; }
+function readUiFile() { try { return JSON.parse(fs.readFileSync(modeFile(), 'utf8')) || {}; } catch { return {}; } }
+function writeUiFile(patch) { try { fs.writeFileSync(modeFile(), JSON.stringify({ ...readUiFile(), ...patch })); } catch {} }
+function loadUiSettings() {
+  const m = readUiFile();
+  uiMode = m.mode === 'unified' ? 'unified' : 'split';
+  railFollow = m.rail !== 'dark';
 }
 function requestModeChange(mode) {
   if (mode === uiMode) return;
-  try { fs.writeFileSync(modeFile(), JSON.stringify({ mode })); } catch {}
+  writeUiFile({ mode });
   const w = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
   dialog.showMessageBox(w, {
     type: 'question', buttons: ['再起動して適用', 'あとで'], defaultId: 0, cancelId: 1,
@@ -96,7 +97,7 @@ async function createWindow() {
   const attachView = v => { if (v && !win.isDestroyed() && !win.getBrowserViews().includes(v)) win.addBrowserView(v); };
   const detachView = v => { if (v && !win.isDestroyed() && win.getBrowserViews().includes(v)) win.removeBrowserView(v); };
   const sendShellState = () => {
-    if (unified && !win.isDestroyed()) win.webContents.send('shell:state', { tab: currentTab, unread: unreadChat, inRoom: !!roomWin, canCreate: !(lastSnap && lastSnap.joined) });
+    if (unified && !win.isDestroyed()) win.webContents.send('shell:state', { tab: currentTab, unread: unreadChat, inRoom: !!roomWin, canCreate: !(lastSnap && lastSnap.joined), railFollow });
   };
   // 現在のタブに合わせて、右ペインにビューを並べる。
   // 部屋タブでは、部屋（上）＋ひとこと（下）の2段にする。
@@ -404,6 +405,18 @@ async function createWindow() {
     if (!unified || e.sender !== win.webContents || typeof v !== 'string') return;
     pageWC().send('potalk:mic-set', v.slice(0, 200));
   });
+  // 本家のテーマ変数を、ページ側から左タブへ中継する
+  ipcMain.on('potalk:theme', (e, t) => {
+    if (!mine(e) || !t || typeof t !== 'object') return;
+    if (!win.isDestroyed()) win.webContents.send('shell:theme', t);
+  });
+  // 左タブのテーマ追随オン／オフ（設定は ui-mode.json に一緒に保存）
+  ipcMain.on('shell:rail-theme', e => {
+    if (!unified || e.sender !== win.webContents) return;
+    railFollow = !railFollow;
+    writeUiFile({ rail: railFollow ? 'follow' : 'dark' });
+    sendShellState();
+  });
   // 初期設定（名前・アバター・見た目）。同じページを設定だけの表示で開く。保存先(localStorage)は本体と共通
   // 統合モードでは別ウィンドウにせず、右ペインに設定ビューを出す
   const openSettingsPane = () => {
@@ -507,7 +520,7 @@ app.whenReady().then(() => {
   const ok = (wc, perm, origin) => allowed.includes(perm) && new URL(origin || wc.getURL()).origin === ORIGIN;
   session.defaultSession.setPermissionRequestHandler((wc, perm, cb, d) => cb(ok(wc, perm, d.requestingUrl)));
   session.defaultSession.setPermissionCheckHandler((wc, perm, origin) => ok(wc, perm, origin));
-  uiMode = loadUiMode();
+  loadUiSettings();
   // 統合モードでは上のメニューバーを出さない（モード切替と終了は左タブにある）。
   // バラバラモードでは、統合へ戻る入口と終了のためにメニューを残す。
   if (uiMode === 'unified') Menu.setApplicationMenu(null);

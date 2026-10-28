@@ -246,6 +246,16 @@ window.addEventListener('DOMContentLoaded', () => {
     });
     // 左タブのボタン（設定・部屋作り・ヘルプ）は、ページ側の既存ボタンを押すことで処理する
     ipcRenderer.on('potalk:ui-click', (_e, id) => { if (['pmSet', 'pmNew', 'pmHelp'].includes(id)) $(id)?.click(); });
+    // 左タブ（シェル）へ本家のテーマ変数を中継する（シェルは別の webContents で、変数を直接読めないため）
+    const THEME_KEYS = ['--panel', '--text', '--sub', '--border', '--chip', '--chip-hover', '--accent'];
+    let lastTheme = '';
+    const sendTheme = () => {
+      const cs = getComputedStyle(document.documentElement), t = {};
+      for (const k of THEME_KEYS) t[k.slice(2)] = cs.getPropertyValue(k).trim();
+      const s = JSON.stringify(t);
+      if (s !== lastTheme) { lastTheme = s; ipcRenderer.send('potalk:theme', t); }
+    };
+    setInterval(sendTheme, 3000); setTimeout(sendTheme, 800);
   }
 
   let joined = false, lastProfile = '';
