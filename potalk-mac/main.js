@@ -190,10 +190,11 @@ async function createWindow() {
   const CHAT_STRIP = 230; // 部屋タブの下部に出す、ひとこと欄の高さ
   const attachView = v => { if (v && !win.isDestroyed() && !win.getBrowserViews().includes(v)) win.addBrowserView(v); };
   const detachView = v => { if (v && !win.isDestroyed() && win.getBrowserViews().includes(v)) win.removeBrowserView(v); };
-  // 部屋一覧ドロワー：部屋タブ（通話中）にいるとき、コンテンツの左端に細いハンドルを出し、
-  // クリックでロビー（ページ）を左から重ねて表示する。通話と部屋タブはそのまま残る。
-  const PEEK_W_MAX = 360, PEEK_HANDLE_W = 20, PEEK_HANDLE_H = 120;
-  let peekOpen = false, peekX = 0, peekTimer = null;
+  // 部屋一覧ドロワー：部屋タブ（通話中）にいるとき、コンテンツ左端の帯にカーソルを置くと
+  // ロビー（ページ）が左からにゅっと重なって出る。ボタンは置かず、気配だけの細い線を出す。
+  // カーソルが一覧から離れたら（右へ動かす＝下の画面のスクロールへ行く動きで）自動で引っ込む。
+  const PEEK_W_MAX = 360, PEEK_HANDLE_H = 120, PEEK_ZONE_W = 12, PEEK_EDGE_W = 12;
+  let peekOpen = false, peekX = 0, peekTimer = null, peekHoverSince = 0, peekGraceUntil = 0;
   const handleShown = () => currentTab === 'room' && !!roomWin;
   const peekWidth = () => Math.min(PEEK_W_MAX, Math.max(0, win.getContentBounds().width - contentX()));
   function applyPeekLayout() {
@@ -212,8 +213,7 @@ async function createWindow() {
       pageView.setBounds({ x: Math.round(peekX), y: 0, width: peekWidth(), height: b.height });
     } else if (currentTab === 'room') detachView(pageView);
     detachView(handleView); attachView(handleView);
-    handleView.setBounds({ x: X, y: Math.max(0, Math.round(b.height / 2 - PEEK_HANDLE_H / 2)), width: PEEK_HANDLE_W, height: PEEK_HANDLE_H });
-    if (!handleView.webContents.isDestroyed()) handleView.webContents.send('peek:state', { open: peekOpen });
+    handleView.setBounds({ x: X, y: Math.max(0, Math.round(b.height / 2 - PEEK_HANDLE_H / 2)), width: PEEK_EDGE_W, height: PEEK_HANDLE_H });
   }
   function animatePeekTo(target, done) {
     if (peekTimer) clearInterval(peekTimer);
@@ -230,6 +230,11 @@ async function createWindow() {
     if (open) { peekOpen = true; peekX = X - peekWidth(); applyPeekLayout(); animatePeekTo(X); }
     else animatePeekTo(X - peekWidth(), () => { peekOpen = false; applyPeekLayout(); });
   }
+  const closePeekNow = () => {
+    if (peekTimer) { clearInterval(peekTimer); peekTimer = null; }
+    peekOpen = false; peekHoverSince = 0;
+    applyPeekLayout();
+  };
   const railWC = () => (railView && !railView.webContents.isDestroyed() ? railView.webContents : null);
   // 左タブの出し方：fixed=常時表示、drawer=左端ホバーで重なって出る。
   // ドロワー時はコンテンツが全幅になり、レールは最前面のビューとして出し入れする。
@@ -269,16 +274,33 @@ async function createWindow() {
     else animateDrawerTo(-RAIL_WIDTH);
   }
   if (unified) {
-    // カーソルがウィンドウ左端に寄ったらドロワーを出し、外れたら引っ込める
+    // カーソルの位置を定期的に見て、レールドロワーと部屋一覧ピークを出し入れする
     setInterval(() => {
-      if (win.isDestroyed() || railMode !== 'drawer' || !win.isVisible() || win.isMinimized()) return;
+      if (win.isDestroyed() || !win.isVisible() || win.isMinimized()) return;
       const b = win.getContentBounds(), pt = screen.getCursorScreenPoint();
       const rx = pt.x - b.x, ry = pt.y - b.y;
       const inside = ry >= 0 && ry <= b.height && rx >= -4 && rx <= b.width;
-      // 部屋一覧ハンドルが出ている高さでは、レールよりハンドルのクリックを優先する
-      const handleZone = handleShown() && contentX() === 0 && rx <= PEEK_HANDLE_W + 2 && Math.abs(ry - b.height / 2) <= PEEK_HANDLE_H / 2 + 4;
-      if (!drawerShown) { if (inside && rx <= 6 && !handleZone) setDrawer(true); }
-      else if (!selectOpen && Date.now() > drawerGraceUntil && (!inside || rx > RAIL_WIDTH + 28)) setDrawer(false);
+      // 部屋一覧ピーク：左端の帯（縦は中央の範囲）に少し置いたら開き、一覧から離れたら閉じる
+      if (handleShown()) {
+        const X = contentX();
+        const inZone = inside && rx >= X - 2 && rx <= X + PEEK_ZONE_W && Math.abs(ry - b.height / 2) <= PEEK_HANDLE_H / 2 + 10;
+        if (!peekOpen) {
+          if (inZone) {
+            if (!peekHoverSince) peekHoverSince = Date.now();
+            else if (Date.now() - peekHoverSince >= 150) { peekHoverSince = 0; peekGraceUntil = Date.now() + 600; setPeek(true); }
+          } else peekHoverSince = 0;
+        } else if (Date.now() > peekGraceUntil) {
+          const overPeek = inside && rx >= X - 4 && rx <= X + peekWidth() + 24;
+          if (!overPeek) setPeek(false);
+        }
+      } else if (peekOpen) closePeekNow();
+      // レールドロワー：左端ホバーで出し、外れたら引っ込める。
+      // 部屋一覧の帯が出ている高さでは、レールよりピークを優先する
+      if (railMode === 'drawer') {
+        const handleZone = handleShown() && contentX() === 0 && rx <= PEEK_ZONE_W + 4 && Math.abs(ry - b.height / 2) <= PEEK_HANDLE_H / 2 + 4;
+        if (!drawerShown) { if (inside && rx <= 6 && !handleZone) setDrawer(true); }
+        else if (!selectOpen && Date.now() > drawerGraceUntil && (!inside || rx > RAIL_WIDTH + 28)) setDrawer(false);
+      }
     }, 100);
   }
   const sendShellState = () => {
@@ -483,10 +505,10 @@ async function createWindow() {
     sendShellState();
   };
   const fromRoom = e => (roomWin && e.sender === roomWin.wc) || (rsetWin && e.sender === rsetWin.wc) || (mailWin && e.sender === mailWin.wc);
-  ipcMain.on('potalk:room-open', e => { if (mine(e)) { peekOpen = false; openRoom(); } });
+  ipcMain.on('potalk:room-open', e => { if (mine(e)) { closePeekNow(); openRoom(); } });
   ipcMain.on('potalk:room-close', e => { if (mine(e)) closeRoom(); });
   // 部屋一覧ハンドルのクリックでドロワーを開閉する
-  ipcMain.on('peek:toggle', e => { if (unified && handleView && e.sender === handleView.webContents) setPeek(!peekOpen); });
+
   // 新しい部屋ができたとき（通知ボタンがオンのとき）：Mac の通知。通知を押すと本体を前に出す
   ipcMain.on('potalk:new-room', (e, name) => {
     if (!mine(e) || typeof name !== 'string' || !Notification.isSupported()) return;
